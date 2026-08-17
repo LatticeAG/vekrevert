@@ -1,0 +1,23 @@
+{
+  "name": "fs_network_mount",
+  "action": {
+    "kind": "fs",
+    "name": "fs.write./mnt/nfs/a",
+    "target": "/mnt/nfs/a",
+    "locality": "internal"
+  },
+  "args": {
+    "op": "write",
+    "path": "/mnt/nfs/a",
+    "realpath": "/mnt/nfs/a"
+  },
+  "ctx": {
+    "networkOrFuseMount": true,
+    "writableRoots": [
+      "/mnt/nfs"
+    ]
+  },
+  "expected": {
+    "tier": "T4"
+  }
+}

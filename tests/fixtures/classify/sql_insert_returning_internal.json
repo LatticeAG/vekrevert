@@ -1,0 +1,15 @@
+{
+  "name": "sql_insert_returning_internal",
+  "action": {
+    "kind": "sql",
+    "name": "sql.INSERT.app.t",
+    "target": "app",
+    "locality": "internal"
+  },
+  "args": {
+    "sql": "INSERT INTO t(n) VALUES (1) RETURNING id"
+  },
+  "expected": {
+    "tier": "T2"
+  }
+}

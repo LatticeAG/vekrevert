@@ -1,0 +1,61 @@
+{
+  "v": "vekrevert/v1",
+  "saga_id": "sag_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+  "genesis": "sha256:4157d00cfc61ffdccb18ba5991db87d4b83f6551f887bd2d133a5cb3d1668b90",
+  "events": [
+    {
+      "v": "vekrevert/v1",
+      "id": "evt_01TEST000000000000000001",
+      "type": "saga_opened",
+      "ts": "2026-08-17T10:00:00.000Z",
+      "saga_id": "sag_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+      "chain_seq": 1,
+      "actor": {
+        "kind": "system",
+        "id": "vekrevert"
+      },
+      "payload": {
+        "n": 1
+      },
+      "prev_hash": "sha256:4157d00cfc61ffdccb18ba5991db87d4b83f6551f887bd2d133a5cb3d1668b90",
+      "hash": "sha256:0f8323c292404df243315216c4f55701bc6336f3b7569df9da8bac4952fb152e"
+    },
+    {
+      "v": "vekrevert/v1",
+      "id": "evt_01TEST000000000000000002",
+      "type": "effect_opened",
+      "ts": "2026-08-17T10:00:01.000Z",
+      "saga_id": "sag_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+      "chain_seq": 2,
+      "actor": {
+        "kind": "system",
+        "id": "vekrevert"
+      },
+      "payload": {
+        "n": 2
+      },
+      "prev_hash": "sha256:0f8323c292404df243315216c4f55701bc6336f3b7569df9da8bac4952fb152e",
+      "hash": "sha256:84b4770a4c372db64153bd18eaa2369496ffb28aeb0bf91b249ec7a66a4bd965"
+    },
+    {
+      "v": "vekrevert/v1",
+      "id": "evt_01TEST000000000000000003",
+      "type": "effect_closed",
+      "ts": "2026-08-17T10:00:02.000Z",
+      "saga_id": "sag_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+      "chain_seq": 3,
+      "actor": {
+        "kind": "system",
+        "id": "vekrevert"
+      },
+      "payload": {
+        "n": 3
+      },
+      "prev_hash": "sha256:84b4770a4c372db64153bd18eaa2369496ffb28aeb0bf91b249ec7a66a4bd965",
+      "hash": "sha256:d52158a51f64787a10e9624039325e29ffbe99edae03f24ce4e89bd726568264"
+    }
+  ],
+  "verify": {
+    "ok": true
+  }
+}

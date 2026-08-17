@@ -1,0 +1,21 @@
+{
+  "name": "fs_stat",
+  "action": {
+    "kind": "fs",
+    "name": "fs.stat./var/app/data/a.txt",
+    "target": "/var/app/data/a.txt",
+    "locality": "internal"
+  },
+  "args": {
+    "op": "stat",
+    "path": "/var/app/data/a.txt"
+  },
+  "ctx": {
+    "writableRoots": [
+      "/var/app/data"
+    ]
+  },
+  "expected": {
+    "tier": "T1"
+  }
+}

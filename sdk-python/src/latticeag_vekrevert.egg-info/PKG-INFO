@@ -1,0 +1,14 @@
+Metadata-Version: 2.4
+Name: latticeag-vekrevert
+Version: 0.1.0
+Summary: VekRevert Python SDK - compensating transactions for agent side effects
+Author: LatticeAG
+License: MIT
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Provides-Extra: dev
+Requires-Dist: pytest>=8.3; extra == "dev"
+
+# latticeag-vekrevert
+
+Python SDK for VekRevert. See the repository README.

@@ -1,0 +1,23 @@
+{
+  "name": "http_delete_with_preimage_manifest",
+  "action": {
+    "kind": "http",
+    "name": "http.DELETE.api.example.com/v1/invoices/inv_1",
+    "target": "api.example.com",
+    "locality": "external"
+  },
+  "args": {
+    "method": "DELETE",
+    "url": "https://api.example.com/v1/invoices/inv_1"
+  },
+  "ctx": {
+    "recreateFromPreimage": true,
+    "preimage": {
+      "kind": "http_body",
+      "truncated": false
+    }
+  },
+  "expected": {
+    "tier": "T3"
+  }
+}

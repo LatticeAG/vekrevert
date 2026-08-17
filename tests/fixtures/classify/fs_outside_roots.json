@@ -1,0 +1,24 @@
+{
+  "name": "fs_outside_roots",
+  "action": {
+    "kind": "fs",
+    "name": "fs.write./etc/passwd",
+    "target": "/etc/passwd",
+    "locality": "internal"
+  },
+  "args": {
+    "op": "write",
+    "path": "/etc/passwd",
+    "realpath": "/etc/passwd"
+  },
+  "ctx": {
+    "writableRoots": [
+      "/var/app/data"
+    ],
+    "scopeViolation": true
+  },
+  "expected": {
+    "tier": "T4",
+    "scope_violation": true
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "mcp_resend_t4",
+  "action": {
+    "kind": "sdk_fn",
+    "name": "sdk.resend.emails.send",
+    "target": "resend",
+    "locality": "external"
+  },
+  "args": {
+    "tool": "emails.send"
+  },
+  "expected": {
+    "tier": "T4"
+  }
+}

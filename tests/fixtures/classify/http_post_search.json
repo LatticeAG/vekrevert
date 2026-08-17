@@ -1,0 +1,19 @@
+{
+  "name": "http_post_search",
+  "action": {
+    "kind": "http",
+    "name": "http.POST.api.example.com/search",
+    "target": "api.example.com",
+    "locality": "external"
+  },
+  "args": {
+    "method": "POST",
+    "url": "https://api.example.com/search",
+    "body": {
+      "q": "x"
+    }
+  },
+  "expected": {
+    "tier": "T3"
+  }
+}

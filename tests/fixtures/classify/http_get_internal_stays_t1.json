@@ -1,0 +1,21 @@
+{
+  "name": "http_get_internal_stays_t1",
+  "action": {
+    "kind": "http",
+    "name": "http.GET.db.internal/health",
+    "target": "db.internal",
+    "locality": "internal"
+  },
+  "args": {
+    "method": "GET",
+    "url": "http://db.internal/health"
+  },
+  "ctx": {
+    "internalHosts": [
+      "db.internal"
+    ]
+  },
+  "expected": {
+    "tier": "T1"
+  }
+}

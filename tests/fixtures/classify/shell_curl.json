@@ -1,0 +1,17 @@
+{
+  "name": "shell_curl",
+  "action": {
+    "kind": "shell",
+    "name": "shell.curl",
+    "locality": "unknown"
+  },
+  "args": {
+    "argv": [
+      "curl",
+      "https://x"
+    ]
+  },
+  "expected": {
+    "tier": "T4"
+  }
+}

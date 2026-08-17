@@ -1,0 +1,17 @@
+{
+  "name": "mcp_slack_post",
+  "action": {
+    "kind": "mcp_tool",
+    "name": "mcp.slack.chat.postMessage",
+    "target": "slack",
+    "locality": "external"
+  },
+  "args": {
+    "tool": "chat.postMessage",
+    "channel": "C1",
+    "text": "hi"
+  },
+  "expected": {
+    "tier": "T3"
+  }
+}

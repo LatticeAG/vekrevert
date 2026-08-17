@@ -1,0 +1,22 @@
+{
+  "name": "fs_chmod",
+  "action": {
+    "kind": "fs",
+    "name": "fs.chmod./var/app/data/a.txt",
+    "target": "/var/app/data/a.txt",
+    "locality": "internal"
+  },
+  "args": {
+    "op": "chmod",
+    "path": "/var/app/data/a.txt",
+    "realpath": "/var/app/data/a.txt"
+  },
+  "ctx": {
+    "writableRoots": [
+      "/var/app/data"
+    ]
+  },
+  "expected": {
+    "tier": "T2"
+  }
+}

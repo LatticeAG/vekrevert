@@ -1,0 +1,52 @@
+{
+  "v": "vekrevert/v1",
+  "cases": [
+    {
+      "name": "join_t1_t2",
+      "evidence": {
+        "structural": "T1",
+        "locality": "T2",
+        "scopeViolation": false,
+        "compensatorMatched": true,
+        "reasons": []
+      },
+      "tier": "T2"
+    },
+    {
+      "name": "scope_violation_t4",
+      "evidence": {
+        "structural": "T1",
+        "locality": "T1",
+        "manifest": { "tier": "T2" },
+        "scopeViolation": true,
+        "compensatorMatched": true,
+        "reasons": []
+      },
+      "tier": "T4"
+    },
+    {
+      "name": "model_escalate",
+      "evidence": {
+        "structural": "T1",
+        "locality": "T1",
+        "model": { "tier": "T3" },
+        "scopeViolation": false,
+        "compensatorMatched": true,
+        "reasons": []
+      },
+      "tier": "T3"
+    },
+    {
+      "name": "manifest_downward",
+      "evidence": {
+        "structural": "T3",
+        "locality": "T3",
+        "manifest": { "tier": "T2" },
+        "scopeViolation": false,
+        "compensatorMatched": true,
+        "reasons": []
+      },
+      "tier": "T2"
+    }
+  ]
+}

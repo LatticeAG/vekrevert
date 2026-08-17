@@ -1,0 +1,19 @@
+{
+  "name": "join_model_escalate",
+  "action": {
+    "kind": "http",
+    "name": "http.GET.example.com/x",
+    "target": "example.com",
+    "locality": "external"
+  },
+  "args": {
+    "method": "GET",
+    "url": "https://example.com/x"
+  },
+  "ctx": {
+    "modelTier": "T3"
+  },
+  "expected": {
+    "tier": "T3"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "sql_grant",
+  "action": {
+    "kind": "sql",
+    "name": "sql.GRANT.app.invoices",
+    "target": "app",
+    "locality": "internal"
+  },
+  "args": {
+    "sql": "GRANT SELECT ON invoices TO u"
+  },
+  "expected": {
+    "tier": "T4"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "sql_drop",
+  "action": {
+    "kind": "sql",
+    "name": "sql.DROP.app.invoices",
+    "target": "app",
+    "locality": "internal"
+  },
+  "args": {
+    "sql": "DROP TABLE invoices"
+  },
+  "expected": {
+    "tier": "T4"
+  }
+}

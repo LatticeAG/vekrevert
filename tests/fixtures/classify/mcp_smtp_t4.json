@@ -1,0 +1,15 @@
+{
+  "name": "mcp_smtp_t4",
+  "action": {
+    "kind": "mcp_tool",
+    "name": "mcp.smtp.send",
+    "target": "smtp",
+    "locality": "external"
+  },
+  "args": {
+    "tool": "smtp.send"
+  },
+  "expected": {
+    "tier": "T4"
+  }
+}

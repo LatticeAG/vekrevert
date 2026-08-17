@@ -1,0 +1,15 @@
+{
+  "name": "mcp_discord_create",
+  "action": {
+    "kind": "mcp_tool",
+    "name": "mcp.discord.createMessage",
+    "target": "discord",
+    "locality": "external"
+  },
+  "args": {
+    "tool": "discord.createMessage"
+  },
+  "expected": {
+    "tier": "T3"
+  }
+}

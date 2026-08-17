@@ -1,0 +1,25 @@
+{
+  "name": "http_put_201_location",
+  "action": {
+    "kind": "http",
+    "name": "http.PUT.api.example.com/v1/invoices/new",
+    "target": "api.example.com",
+    "locality": "external"
+  },
+  "args": {
+    "method": "PUT",
+    "url": "https://api.example.com/v1/invoices/new",
+    "body": {
+      "amount": 1
+    }
+  },
+  "ctx": {
+    "resultStatus": 201,
+    "resultHeaders": {
+      "Location": "/v1/invoices/inv_1"
+    }
+  },
+  "expected": {
+    "tier": "T3"
+  }
+}

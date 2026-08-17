@@ -1,0 +1,28 @@
+{
+  "name": "http_idempotency_key_unchanged",
+  "action": {
+    "kind": "http",
+    "name": "http.POST.api.example.com/v1/invoices",
+    "target": "api.example.com",
+    "locality": "external"
+  },
+  "args": {
+    "method": "POST",
+    "url": "https://api.example.com/v1/invoices",
+    "body": {
+      "amount": 1
+    }
+  },
+  "ctx": {
+    "resultStatus": 201,
+    "resultHeaders": {
+      "Idempotency-Key": "abc"
+    },
+    "result": {
+      "id": "x"
+    }
+  },
+  "expected": {
+    "tier": "T3"
+  }
+}

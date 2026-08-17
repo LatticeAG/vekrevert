@@ -1,0 +1,22 @@
+{
+  "name": "http_post_400",
+  "action": {
+    "kind": "http",
+    "name": "http.POST.api.example.com/v1/invoices",
+    "target": "api.example.com",
+    "locality": "external"
+  },
+  "args": {
+    "method": "POST",
+    "url": "https://api.example.com/v1/invoices",
+    "body": {
+      "amount": 1
+    }
+  },
+  "ctx": {
+    "resultStatus": 400
+  },
+  "expected": {
+    "tier": "T1"
+  }
+}

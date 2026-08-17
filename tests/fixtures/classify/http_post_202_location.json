@@ -1,0 +1,23 @@
+{
+  "name": "http_post_202_location",
+  "action": {
+    "kind": "http",
+    "name": "http.POST.api.example.com/v1/jobs",
+    "target": "api.example.com",
+    "locality": "external"
+  },
+  "args": {
+    "method": "POST",
+    "url": "https://api.example.com/v1/jobs",
+    "body": {}
+  },
+  "ctx": {
+    "resultStatus": 202,
+    "resultHeaders": {
+      "Location": "/v1/jobs/1"
+    }
+  },
+  "expected": {
+    "tier": "T3"
+  }
+}

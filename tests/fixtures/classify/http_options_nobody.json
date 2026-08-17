@@ -1,0 +1,16 @@
+{
+  "name": "http_options_nobody",
+  "action": {
+    "kind": "http",
+    "name": "http.OPTIONS.example.com/x",
+    "target": "example.com",
+    "locality": "external"
+  },
+  "args": {
+    "method": "OPTIONS",
+    "url": "https://example.com/x"
+  },
+  "expected": {
+    "tier": "T1"
+  }
+}

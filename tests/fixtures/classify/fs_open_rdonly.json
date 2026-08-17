@@ -1,0 +1,21 @@
+{
+  "name": "fs_open_rdonly",
+  "action": {
+    "kind": "fs",
+    "name": "fs.open./var/app/data/a.txt",
+    "target": "/var/app/data/a.txt",
+    "locality": "internal"
+  },
+  "args": {
+    "op": "open",
+    "path": "/var/app/data/a.txt"
+  },
+  "ctx": {
+    "writableRoots": [
+      "/var/app/data"
+    ]
+  },
+  "expected": {
+    "tier": "T1"
+  }
+}

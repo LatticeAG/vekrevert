@@ -1,0 +1,29 @@
+{
+  "name": "http_patch_with_preimage_internal",
+  "action": {
+    "kind": "http",
+    "name": "http.PATCH.db.internal/rows/1",
+    "target": "db.internal",
+    "locality": "internal"
+  },
+  "args": {
+    "method": "PATCH",
+    "url": "http://db.internal/rows/1",
+    "body": {
+      "amount": 2
+    }
+  },
+  "ctx": {
+    "resultStatus": 200,
+    "preimage": {
+      "kind": "http_body",
+      "truncated": false
+    },
+    "internalHosts": [
+      "db.internal"
+    ]
+  },
+  "expected": {
+    "tier": "T2"
+  }
+}

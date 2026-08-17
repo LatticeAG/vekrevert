@@ -1,0 +1,21 @@
+{
+  "name": "fs_readlink",
+  "action": {
+    "kind": "fs",
+    "name": "fs.readlink./var/app/data/l",
+    "target": "/var/app/data/l",
+    "locality": "internal"
+  },
+  "args": {
+    "op": "readlink",
+    "path": "/var/app/data/l"
+  },
+  "ctx": {
+    "writableRoots": [
+      "/var/app/data"
+    ]
+  },
+  "expected": {
+    "tier": "T1"
+  }
+}

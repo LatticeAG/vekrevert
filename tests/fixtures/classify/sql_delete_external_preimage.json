@@ -1,0 +1,22 @@
+{
+  "name": "sql_delete_external_preimage",
+  "action": {
+    "kind": "sql",
+    "name": "sql.DELETE.app.invoices",
+    "target": "app",
+    "locality": "external"
+  },
+  "args": {
+    "sql": "DELETE FROM invoices WHERE id=1"
+  },
+  "ctx": {
+    "preimage": {
+      "kind": "sql_rows",
+      "rows": 1,
+      "truncated": false
+    }
+  },
+  "expected": {
+    "tier": "T3"
+  }
+}

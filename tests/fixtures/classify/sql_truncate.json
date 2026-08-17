@@ -1,0 +1,15 @@
+{
+  "name": "sql_truncate",
+  "action": {
+    "kind": "sql",
+    "name": "sql.TRUNCATE.app.invoices",
+    "target": "app",
+    "locality": "internal"
+  },
+  "args": {
+    "sql": "TRUNCATE invoices"
+  },
+  "expected": {
+    "tier": "T4"
+  }
+}

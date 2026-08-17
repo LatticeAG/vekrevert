@@ -1,0 +1,39 @@
+{
+  "v": "vekrevert/v1",
+  "cases": [
+    {
+      "name": "effect_id_invoice",
+      "saga_id": "sag_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+      "seq": 1,
+      "action_name": "http.POST.api.example.com/v1/invoices",
+      "args": {
+        "customer": "acme",
+        "amount": 450
+      },
+      "args_hash": "sha256:5d40f2334de970fe1f51582de3b5a2d0b5171af7a6ccc74cf81cc71ff76287c7",
+      "effect_id": "eff_S7DW2SEVFCH3C67WD8Z6J11J7Y"
+    },
+    {
+      "name": "plan_hash_and_idempotency",
+      "effect_id": "eff_S7DW2SEVFCH3C67WD8Z6J11J7Y",
+      "compensator_id": "cmp_http_create@1",
+      "origin": "builtin",
+      "steps": [
+        {
+          "kind": "http_request",
+          "method": "DELETE"
+        }
+      ],
+      "plan_hash": "sha256:b5b604899592677f77b3f370a4bc4c3d7922b3db0ccec80a601f07f010c5c926",
+      "saga_id": "sag_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+      "effect_seq": 1,
+      "step_index": 0,
+      "idempotency_key": "vr1_0TG13NANRQ8EVXA2DT4XFB71D342QFYH"
+    },
+    {
+      "name": "genesis",
+      "saga_id": "sag_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+      "genesis": "sha256:4157d00cfc61ffdccb18ba5991db87d4b83f6551f887bd2d133a5cb3d1668b90"
+    }
+  ]
+}

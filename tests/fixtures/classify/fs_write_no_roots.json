@@ -1,0 +1,22 @@
+{
+  "name": "fs_write_no_roots",
+  "action": {
+    "kind": "fs",
+    "name": "fs.write./tmp/x",
+    "target": "/tmp/x",
+    "locality": "internal"
+  },
+  "args": {
+    "op": "write",
+    "path": "/tmp/x"
+  },
+  "ctx": {
+    "preimage": {
+      "kind": "fs_absent",
+      "truncated": false
+    }
+  },
+  "expected": {
+    "tier": "T2"
+  }
+}

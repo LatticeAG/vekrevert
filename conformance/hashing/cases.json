@@ -1,0 +1,52 @@
+{
+  "v": "vekrevert/v1",
+  "cases": [
+    {
+      "name": "object_key_sort",
+      "input": {
+        "b": 2,
+        "a": 1
+      },
+      "sha256": "sha256:43258cff783fe7036d8a43033f830adfc60ec037382473548ac742b888292777"
+    },
+    {
+      "name": "nested",
+      "input": [
+        1,
+        {
+          "z": 1,
+          "a": 0
+        },
+        null
+      ],
+      "sha256": "sha256:604c6c3f37878a81e9e3d13f13bda734ac3c968498e9d2f4392380ddf87807f2"
+    },
+    {
+      "name": "empty_and_euro",
+      "input": {
+        "": 0,
+        "€": "Euro"
+      },
+      "sha256": "sha256:98e050808f9c990eca3a36e541daf3bc57d746eba24cafcbc948bfb5959aa85e"
+    },
+    {
+      "name": "scalars",
+      "input": {
+        "t": true,
+        "f": false,
+        "n": null,
+        "i": 0,
+        "x": 1.5,
+        "s": "quote\"slash\\"
+      },
+      "sha256": "sha256:990d74697195639f4492ed42cb48fef8c1c723d5d23066be9e99f0d9970d4a3c"
+    },
+    {
+      "name": "unicode_escape_ctrl",
+      "input": {
+        "k": "a\nb\tc"
+      },
+      "sha256": "sha256:75dc59caefe47f4df9f4ae8073e16df8c567399de120b43ea57a07c2d36b753d"
+    }
+  ]
+}

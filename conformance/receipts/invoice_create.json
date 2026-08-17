@@ -1,0 +1,83 @@
+{
+  "v": "vekrevert/v1",
+  "effect_id": "eff_S7DW2SEVFCH3C67WD8Z6J11J7Y",
+  "saga_id": "sag_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+  "seq": 1,
+  "action": {
+    "kind": "http",
+    "name": "http.POST.api.example.com/v1/invoices",
+    "target": "api.example.com",
+    "locality": "external"
+  },
+  "tier": "T3",
+  "classification": {
+    "tier": "T3",
+    "sources": [
+      {
+        "source": "structural",
+        "tier": "T3",
+        "reasons": [
+          "http_create"
+        ]
+      },
+      {
+        "source": "locality",
+        "tier": "T1",
+        "reasons": [
+          "locality_external"
+        ]
+      }
+    ],
+    "reasons": [
+      "http_create",
+      "locality_external",
+      "compensator_unavailable"
+    ],
+    "candidates": [],
+    "scope_violation": false
+  },
+  "args_observed": {
+    "customer": "acme",
+    "amount": 450
+  },
+  "args_hash": "sha256:5d40f2334de970fe1f51582de3b5a2d0b5171af7a6ccc74cf81cc71ff76287c7",
+  "intent_key": "sha256:6504fea2c9bb9f6676f26f4257e29fd1697719b40e5cd9159d6a522ad6ff2b36",
+  "result_observed": {
+    "status": 201,
+    "headers": {
+      "Location": "https://api.example.com/v1/invoices/inv_7f3a91"
+    },
+    "id": "inv_7f3a91",
+    "created_at": "2026-08-17T10:00:00Z"
+  },
+  "result_hash": "sha256:2676b37b53e94021ced71efd4b2f7f9c8fd69274e998e9f1fe40828feaf0b161",
+  "bindings": {
+    "Location": "https://api.example.com/v1/invoices/inv_7f3a91",
+    "id": "inv_7f3a91",
+    "created_at": "2026-08-17T10:00:00Z"
+  },
+  "binding_paths": {
+    "Location": "header.Location",
+    "id": "result.$.id",
+    "created_at": "result.$.created_at"
+  },
+  "resource_keys": [
+    "http:api.example.com:/v1/invoices/inv_7f3a91"
+  ],
+  "status": "landed",
+  "compensation_state": "unavailable",
+  "capture": {
+    "fidelity": "full",
+    "interceptor": "sdk-ts",
+    "sdk_version": "0.1.0",
+    "warnings": []
+  },
+  "leak": "none",
+  "cascade_risk": "none",
+  "opened_at": "2026-08-17T10:00:00.000Z",
+  "closed_at": "2026-08-17T10:00:00.012Z",
+  "duration_ms": 12,
+  "redactions": [],
+  "sealed": true,
+  "seal_hash": "sha256:aea3a5f635510a352cd7f069bfcdcc27fc266873e5af5b1cf1f43dd18091431b"
+}

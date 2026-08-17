@@ -1,0 +1,19 @@
+{
+  "name": "http_put_override_t3",
+  "action": {
+    "kind": "http",
+    "name": "http.PUT.example.com/x",
+    "target": "example.com",
+    "locality": "external"
+  },
+  "args": {
+    "method": "PUT",
+    "url": "https://example.com/x",
+    "headers": {
+      "X-HTTP-Method-Override": "GET"
+    }
+  },
+  "expected": {
+    "tier": "T3"
+  }
+}

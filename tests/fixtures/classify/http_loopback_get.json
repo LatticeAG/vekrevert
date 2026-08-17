@@ -1,0 +1,16 @@
+{
+  "name": "http_loopback_get",
+  "action": {
+    "kind": "http",
+    "name": "http.GET.127.0.0.1/x",
+    "target": "127.0.0.1",
+    "locality": "internal"
+  },
+  "args": {
+    "method": "GET",
+    "url": "http://127.0.0.1/x"
+  },
+  "expected": {
+    "tier": "T1"
+  }
+}

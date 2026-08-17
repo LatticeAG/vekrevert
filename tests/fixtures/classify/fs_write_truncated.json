@@ -1,0 +1,27 @@
+{
+  "name": "fs_write_truncated",
+  "action": {
+    "kind": "fs",
+    "name": "fs.write./var/app/data/big.bin",
+    "target": "/var/app/data/big.bin",
+    "locality": "internal"
+  },
+  "args": {
+    "op": "write",
+    "path": "/var/app/data/big.bin",
+    "realpath": "/var/app/data/big.bin"
+  },
+  "ctx": {
+    "preimage": {
+      "kind": "fs_bytes",
+      "bytes": 9000000,
+      "truncated": true
+    },
+    "writableRoots": [
+      "/var/app/data"
+    ]
+  },
+  "expected": {
+    "tier": "T4"
+  }
+}

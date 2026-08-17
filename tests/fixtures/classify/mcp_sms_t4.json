@@ -1,0 +1,15 @@
+{
+  "name": "mcp_sms_t4",
+  "action": {
+    "kind": "mcp_tool",
+    "name": "mcp.twilio.sms",
+    "target": "twilio",
+    "locality": "external"
+  },
+  "args": {
+    "tool": "sms"
+  },
+  "expected": {
+    "tier": "T4"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "fs_mkdir",
+  "action": {
+    "kind": "fs",
+    "name": "fs.mkdir./var/app/data/d",
+    "target": "/var/app/data/d",
+    "locality": "internal"
+  },
+  "args": {
+    "op": "mkdir",
+    "path": "/var/app/data/d",
+    "realpath": "/var/app/data/d"
+  },
+  "ctx": {
+    "writableRoots": [
+      "/var/app/data"
+    ]
+  },
+  "expected": {
+    "tier": "T2"
+  }
+}

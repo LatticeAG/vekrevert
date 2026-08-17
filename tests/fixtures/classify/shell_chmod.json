@@ -1,0 +1,18 @@
+{
+  "name": "shell_chmod",
+  "action": {
+    "kind": "shell",
+    "name": "shell.chmod",
+    "locality": "internal"
+  },
+  "args": {
+    "argv": [
+      "chmod",
+      "777",
+      "/tmp"
+    ]
+  },
+  "expected": {
+    "tier": "T4"
+  }
+}

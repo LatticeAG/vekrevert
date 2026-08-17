@@ -1,0 +1,16 @@
+{
+  "name": "http_head_nobody",
+  "action": {
+    "kind": "http",
+    "name": "http.HEAD.example.com/x",
+    "target": "example.com",
+    "locality": "external"
+  },
+  "args": {
+    "method": "HEAD",
+    "url": "https://example.com/x"
+  },
+  "expected": {
+    "tier": "T1"
+  }
+}

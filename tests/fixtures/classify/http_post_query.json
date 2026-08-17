@@ -1,0 +1,19 @@
+{
+  "name": "http_post_query",
+  "action": {
+    "kind": "http",
+    "name": "http.POST.api.example.com/query",
+    "target": "api.example.com",
+    "locality": "external"
+  },
+  "args": {
+    "method": "POST",
+    "url": "https://api.example.com/query",
+    "body": {
+      "q": "x"
+    }
+  },
+  "expected": {
+    "tier": "T3"
+  }
+}

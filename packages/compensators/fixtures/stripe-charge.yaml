@@ -1,0 +1,30 @@
+# compensators/stripe-charge.yaml, registered via `vekrevert register`
+id: cmp_stripe_charge_create@1.0.0
+match: { kind: http, method: POST, url_pattern: "https://api.stripe.com/v1/charges" }
+applies_when: [{ result_status_in: [200, 201] }]
+tier: T3
+volatile: ["$.idempotency_key", "$.metadata.request_ts"]
+binds:
+  charge_id: { from: "result.$.id", required: true, pattern: "^ch_[A-Za-z0-9]+$" }
+  amount:    { from: "result.$.amount", required: true }
+constants:
+  refund_url: "https://api.stripe.com/v1/refunds"
+credentials: ["stripe_secret"]
+scopes: ["stripe:refunds:write"]
+leak: downstream_effects        # the customer saw the statement line
+cascade_risk: low
+validity_window: P120D          # illustrative; confirm the API's actual refund window at registration time
+reversal_completeness: partial  # refunded, not un-charged; fees may not return
+compensator:
+  kind: declarative
+  steps:
+    - kind: http_request
+      method: POST
+      url: { $ref: "const.refund_url" }
+      headers:
+        Authorization: Bearer { $ref: "credential.stripe_secret" }
+        Idempotency-Key: { $ref: "runtime.idempotency_key" }
+      body:
+        charge: { $ref: "receipt.bindings.charge_id" }
+        amount: { $ref: "receipt.bindings.amount" }
+      expect: { status_in: [200] }

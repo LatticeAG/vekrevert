@@ -1,0 +1,32 @@
+{
+  "name": "fs_unlink_preimage",
+  "action": {
+    "kind": "fs",
+    "name": "fs.unlink./var/app/data/a.txt",
+    "target": "/var/app/data/a.txt",
+    "locality": "internal"
+  },
+  "args": {
+    "op": "unlink",
+    "path": "/var/app/data/a.txt",
+    "realpath": "/var/app/data/a.txt"
+  },
+  "ctx": {
+    "preimage": {
+      "kind": "fs_bytes",
+      "blob_id": "blob_sha256:ab",
+      "bytes": 12,
+      "truncated": false,
+      "meta": {
+        "dev": 1,
+        "ino": 2
+      }
+    },
+    "writableRoots": [
+      "/var/app/data"
+    ]
+  },
+  "expected": {
+    "tier": "T2"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "name": "sql_update_too_many_rows",
+  "action": {
+    "kind": "sql",
+    "name": "sql.UPDATE.app.invoices",
+    "target": "app",
+    "locality": "internal"
+  },
+  "args": {
+    "sql": "UPDATE invoices SET n=2 WHERE n>0"
+  },
+  "ctx": {
+    "preimage": {
+      "kind": "sql_rows",
+      "rows": 1,
+      "truncated": false
+    },
+    "affectedRows": 10001
+  },
+  "expected": {
+    "tier": "T4"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "name": "sql_update_preimage_external",
+  "action": {
+    "kind": "sql",
+    "name": "sql.UPDATE.app.invoices",
+    "target": "app",
+    "locality": "external"
+  },
+  "args": {
+    "sql": "UPDATE invoices SET n=2 WHERE id=1"
+  },
+  "ctx": {
+    "preimage": {
+      "kind": "sql_rows",
+      "rows": 1,
+      "truncated": false
+    },
+    "affectedRows": 1
+  },
+  "expected": {
+    "tier": "T3"
+  }
+}

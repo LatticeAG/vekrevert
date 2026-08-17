@@ -1,0 +1,18 @@
+{
+  "name": "shell_rm",
+  "action": {
+    "kind": "shell",
+    "name": "shell.rm",
+    "locality": "unknown"
+  },
+  "args": {
+    "argv": [
+      "rm",
+      "-rf",
+      "/tmp/x"
+    ]
+  },
+  "expected": {
+    "tier": "T4"
+  }
+}

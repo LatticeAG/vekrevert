@@ -1,0 +1,16 @@
+{
+  "name": "http_get_pad_6",
+  "action": {
+    "kind": "http",
+    "name": "http.GET.example.com/p/6",
+    "target": "example.com",
+    "locality": "external"
+  },
+  "args": {
+    "method": "GET",
+    "url": "https://example.com/p/6"
+  },
+  "expected": {
+    "tier": "T1"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "name": "shell_python",
+  "action": {
+    "kind": "shell",
+    "name": "shell.python",
+    "locality": "unknown"
+  },
+  "args": {
+    "argv": [
+      "python",
+      "-c",
+      "open('/etc/passwd')"
+    ]
+  },
+  "expected": {
+    "tier": "T4"
+  }
+}

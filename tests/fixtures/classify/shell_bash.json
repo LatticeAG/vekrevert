@@ -1,0 +1,18 @@
+{
+  "name": "shell_bash",
+  "action": {
+    "kind": "shell",
+    "name": "shell.bash",
+    "locality": "unknown"
+  },
+  "args": {
+    "argv": [
+      "bash",
+      "-c",
+      "echo hi"
+    ]
+  },
+  "expected": {
+    "tier": "T4"
+  }
+}

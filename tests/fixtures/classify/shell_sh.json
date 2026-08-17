@@ -1,0 +1,17 @@
+{
+  "name": "shell_sh",
+  "action": {
+    "kind": "shell",
+    "name": "shell.sh",
+    "locality": "unknown"
+  },
+  "args": {
+    "argv": [
+      "sh",
+      "script.sh"
+    ]
+  },
+  "expected": {
+    "tier": "T4"
+  }
+}

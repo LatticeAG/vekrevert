@@ -1,0 +1,25 @@
+{
+  "name": "http_post_200_id",
+  "action": {
+    "kind": "http",
+    "name": "http.POST.api.example.com/v1/items",
+    "target": "api.example.com",
+    "locality": "external"
+  },
+  "args": {
+    "method": "POST",
+    "url": "https://api.example.com/v1/items",
+    "body": {
+      "n": 1
+    }
+  },
+  "ctx": {
+    "resultStatus": 200,
+    "result": {
+      "id": "it_1"
+    }
+  },
+  "expected": {
+    "tier": "T3"
+  }
+}

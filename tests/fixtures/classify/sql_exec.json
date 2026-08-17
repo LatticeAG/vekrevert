@@ -1,0 +1,15 @@
+{
+  "name": "sql_exec",
+  "action": {
+    "kind": "sql",
+    "name": "sql.EXEC.app",
+    "target": "app",
+    "locality": "internal"
+  },
+  "args": {
+    "sql": "EXEC do_thing"
+  },
+  "expected": {
+    "tier": "T4"
+  }
+}

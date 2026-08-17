@@ -1,0 +1,19 @@
+{
+  "name": "http_post_graphql",
+  "action": {
+    "kind": "http",
+    "name": "http.POST.api.example.com/graphql",
+    "target": "api.example.com",
+    "locality": "external"
+  },
+  "args": {
+    "method": "POST",
+    "url": "https://api.example.com/graphql",
+    "body": {
+      "q": "x"
+    }
+  },
+  "expected": {
+    "tier": "T3"
+  }
+}

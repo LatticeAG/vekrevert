@@ -1,0 +1,15 @@
+{
+  "name": "sql_vacuum",
+  "action": {
+    "kind": "sql",
+    "name": "sql.VACUUM.app.invoices",
+    "target": "app",
+    "locality": "internal"
+  },
+  "args": {
+    "sql": "VACUUM"
+  },
+  "expected": {
+    "tier": "T4"
+  }
+}

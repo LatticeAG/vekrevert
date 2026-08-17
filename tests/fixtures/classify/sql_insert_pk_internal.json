@@ -1,0 +1,18 @@
+{
+  "name": "sql_insert_pk_internal",
+  "action": {
+    "kind": "sql",
+    "name": "sql.INSERT.app.invoices",
+    "target": "app",
+    "locality": "internal"
+  },
+  "args": {
+    "sql": "INSERT INTO invoices (n) VALUES (1) RETURNING id"
+  },
+  "ctx": {
+    "pkResolvable": true
+  },
+  "expected": {
+    "tier": "T2"
+  }
+}

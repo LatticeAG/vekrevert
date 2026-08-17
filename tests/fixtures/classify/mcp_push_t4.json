@@ -1,0 +1,15 @@
+{
+  "name": "mcp_push_t4",
+  "action": {
+    "kind": "mcp_tool",
+    "name": "mcp.fcm.push_notification",
+    "target": "fcm",
+    "locality": "external"
+  },
+  "args": {
+    "tool": "push_notification"
+  },
+  "expected": {
+    "tier": "T4"
+  }
+}

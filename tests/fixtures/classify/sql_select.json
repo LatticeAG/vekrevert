@@ -1,0 +1,15 @@
+{
+  "name": "sql_select",
+  "action": {
+    "kind": "sql",
+    "name": "sql.SELECT.app.invoices",
+    "target": "app",
+    "locality": "internal"
+  },
+  "args": {
+    "sql": "SELECT * FROM invoices WHERE id = 1"
+  },
+  "expected": {
+    "tier": "T1"
+  }
+}

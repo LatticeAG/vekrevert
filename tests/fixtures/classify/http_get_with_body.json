@@ -1,0 +1,19 @@
+{
+  "name": "http_get_with_body",
+  "action": {
+    "kind": "http",
+    "name": "http.GET.example.com/x",
+    "target": "example.com",
+    "locality": "external"
+  },
+  "args": {
+    "method": "GET",
+    "url": "https://example.com/x",
+    "body": {
+      "q": 1
+    }
+  },
+  "expected": {
+    "tier": "T3"
+  }
+}

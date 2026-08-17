@@ -1,0 +1,19 @@
+{
+  "name": "@latticeag/vekrevert-cli",
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "vekrevert": "./src/bin.ts"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@latticeag/vekrevert": "workspace:*",
+    "@latticeag/vekrevert-core": "workspace:*",
+    "@latticeag/vekrevert-compensators": "workspace:*",
+    "@latticeag/vekrevert-events": "workspace:*",
+    "yaml": "^2.8.1"
+  }
+}

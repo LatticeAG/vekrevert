@@ -1,0 +1,19 @@
+{
+  "name": "http_method_override",
+  "action": {
+    "kind": "http",
+    "name": "http.POST.example.com/x",
+    "target": "example.com",
+    "locality": "external"
+  },
+  "args": {
+    "method": "POST",
+    "url": "https://example.com/x",
+    "headers": {
+      "X-HTTP-Method-Override": "DELETE"
+    }
+  },
+  "expected": {
+    "tier": "T3"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "name": "http_put_with_preimage_external",
+  "action": {
+    "kind": "http",
+    "name": "http.PUT.api.example.com/v1/invoices/inv_1",
+    "target": "api.example.com",
+    "locality": "external"
+  },
+  "args": {
+    "method": "PUT",
+    "url": "https://api.example.com/v1/invoices/inv_1",
+    "body": {
+      "amount": 2
+    }
+  },
+  "ctx": {
+    "resultStatus": 200,
+    "preimage": {
+      "kind": "http_body",
+      "truncated": false
+    }
+  },
+  "expected": {
+    "tier": "T3"
+  }
+}

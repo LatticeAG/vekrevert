@@ -1,0 +1,15 @@
+{
+  "name": "sql_comment_select",
+  "action": {
+    "kind": "sql",
+    "name": "sql.SELECT.app.invoices",
+    "target": "app",
+    "locality": "internal"
+  },
+  "args": {
+    "sql": "/* mutate? */ SELECT id FROM invoices -- INSERT"
+  },
+  "expected": {
+    "tier": "T1"
+  }
+}

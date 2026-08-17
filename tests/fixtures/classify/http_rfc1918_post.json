@@ -1,0 +1,25 @@
+{
+  "name": "http_rfc1918_post",
+  "action": {
+    "kind": "http",
+    "name": "http.POST.10.0.0.5/x",
+    "target": "10.0.0.5",
+    "locality": "internal"
+  },
+  "args": {
+    "method": "POST",
+    "url": "http://10.0.0.5/x",
+    "body": {
+      "a": 1
+    }
+  },
+  "ctx": {
+    "resultStatus": 201,
+    "result": {
+      "id": "1"
+    }
+  },
+  "expected": {
+    "tier": "T3"
+  }
+}

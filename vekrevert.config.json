@@ -1,0 +1,30 @@
+{
+  "ledger": "sqlite:./.vekrevert/ledger.db",
+  "agentId": "vekrevert",
+  "allowDrafted": false,
+  "recordT1": false,
+  "writableRoots": [],
+  "internalHosts": [],
+  "policy": {
+    "blockT4": false,
+    "requireApprovalFor": [
+      "T4"
+    ]
+  },
+  "models": {
+    "classifier": null,
+    "drafter": null,
+    "verifier": null
+  },
+  "redact": {
+    "paths": [
+      "$.password",
+      "$.token",
+      "$.authorization",
+      "$.ssn"
+    ],
+    "patterns": [
+      "sk_live_[A-Za-z0-9]+"
+    ]
+  }
+}

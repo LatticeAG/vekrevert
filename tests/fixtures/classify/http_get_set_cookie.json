@@ -1,0 +1,22 @@
+{
+  "name": "http_get_set_cookie",
+  "action": {
+    "kind": "http",
+    "name": "http.GET.example.com/x",
+    "target": "example.com",
+    "locality": "external"
+  },
+  "args": {
+    "method": "GET",
+    "url": "https://example.com/x"
+  },
+  "ctx": {
+    "resultStatus": 200,
+    "resultHeaders": {
+      "set-cookie": "sid=1"
+    }
+  },
+  "expected": {
+    "tier": "T2"
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "action": {
+    "kind": "http",
+    "name": "http.POST.api.example.com/v1/items",
+    "target": "api.example.com",
+    "locality": "external"
+  },
+  "args": {
+    "method": "POST",
+    "url": "https://api.example.com/v1/items",
+    "body": { "n": 1 }
+  },
+  "result": {
+    "id": "it_1",
+    "status": 201
+  },
+  "headers": {
+    "Location": "https://api.example.com/v1/items/it_1"
+  },
+  "bindings": {
+    "resource_url": "https://api.example.com/v1/items/it_1",
+    "id": "it_1"
+  },
+  "resource_keys": ["http:api.example.com:/v1/items/it_1"],
+  "effect_id": "eff_http_create_fixture",
+  "saga_id": "sag_http_create_fixture",
+  "signature": {
+    "id": "cmp_http_create@1",
+    "match": {
+      "kind": "http",
+      "method": "POST",
+      "url_pattern": "https://api.example.com/v1/items"
+    },
+    "applies_when": [{ "result_status_in": [200, 201, 202] }],
+    "tier": "T3",
+    "binds": {
+      "resource_url": { "from": "header.Location", "required": true },
+      "id": { "from": "result.$.id", "required": true }
+    },
+    "compensator": {
+      "kind": "declarative",
+      "steps": [
+        {
+          "kind": "http_request",
+          "method": "DELETE",
+          "url": { "$ref": "receipt.bindings.resource_url" },
+          "expect": {
+            "status_in": [200, 202, 204, 404],
+            "treat_404_as_compensated": true
+          }
+        }
+      ]
+    },
+    "leak": "none",
+    "cascade_risk": "low",
+    "reversal_completeness": "full",
+    "source": "builtin",
+    "delete_undoes_create": true
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "mcp_telegram_send",
+  "action": {
+    "kind": "mcp_tool",
+    "name": "mcp.telegram.sendMessage",
+    "target": "telegram",
+    "locality": "external"
+  },
+  "args": {
+    "tool": "telegram.sendMessage"
+  },
+  "expected": {
+    "tier": "T3"
+  }
+}

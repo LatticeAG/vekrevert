@@ -1,0 +1,19 @@
+{
+  "name": "http_post_rpc",
+  "action": {
+    "kind": "http",
+    "name": "http.POST.api.example.com/rpc",
+    "target": "api.example.com",
+    "locality": "external"
+  },
+  "args": {
+    "method": "POST",
+    "url": "https://api.example.com/rpc",
+    "body": {
+      "q": "x"
+    }
+  },
+  "expected": {
+    "tier": "T3"
+  }
+}

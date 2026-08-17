@@ -1,0 +1,20 @@
+{
+  "name": "http_delete_500",
+  "action": {
+    "kind": "http",
+    "name": "http.DELETE.api.example.com/v1/invoices/1",
+    "target": "api.example.com",
+    "locality": "external"
+  },
+  "args": {
+    "method": "DELETE",
+    "url": "https://api.example.com/v1/invoices/1"
+  },
+  "ctx": {
+    "resultStatus": 500
+  },
+  "expected": {
+    "tier": "T4",
+    "in_doubt": true
+  }
+}

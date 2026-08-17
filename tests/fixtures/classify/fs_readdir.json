@@ -1,0 +1,21 @@
+{
+  "name": "fs_readdir",
+  "action": {
+    "kind": "fs",
+    "name": "fs.readdir./var/app/data",
+    "target": "/var/app/data",
+    "locality": "internal"
+  },
+  "args": {
+    "op": "readdir",
+    "path": "/var/app/data"
+  },
+  "ctx": {
+    "writableRoots": [
+      "/var/app/data"
+    ]
+  },
+  "expected": {
+    "tier": "T1"
+  }
+}

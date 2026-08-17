@@ -1,0 +1,16 @@
+{
+  "name": "http_trace_nobody",
+  "action": {
+    "kind": "http",
+    "name": "http.TRACE.example.com/x",
+    "target": "example.com",
+    "locality": "external"
+  },
+  "args": {
+    "method": "TRACE",
+    "url": "https://example.com/x"
+  },
+  "expected": {
+    "tier": "T1"
+  }
+}

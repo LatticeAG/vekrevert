@@ -1,0 +1,26 @@
+{
+  "name": "fs_write_create",
+  "action": {
+    "kind": "fs",
+    "name": "fs.write./var/app/data/new.txt",
+    "target": "/var/app/data/new.txt",
+    "locality": "internal"
+  },
+  "args": {
+    "op": "write",
+    "path": "/var/app/data/new.txt",
+    "realpath": "/var/app/data/new.txt"
+  },
+  "ctx": {
+    "preimage": {
+      "kind": "fs_absent",
+      "truncated": false
+    },
+    "writableRoots": [
+      "/var/app/data"
+    ]
+  },
+  "expected": {
+    "tier": "T2"
+  }
+}

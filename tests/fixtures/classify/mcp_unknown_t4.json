@@ -1,0 +1,15 @@
+{
+  "name": "mcp_unknown_t4",
+  "action": {
+    "kind": "mcp_tool",
+    "name": "mcp.other.do",
+    "target": "other",
+    "locality": "external"
+  },
+  "args": {
+    "tool": "do"
+  },
+  "expected": {
+    "tier": "T4"
+  }
+}

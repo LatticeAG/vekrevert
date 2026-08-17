@@ -1,0 +1,15 @@
+{
+  "name": "sql_create",
+  "action": {
+    "kind": "sql",
+    "name": "sql.CREATE.app.invoices",
+    "target": "app",
+    "locality": "internal"
+  },
+  "args": {
+    "sql": "CREATE TABLE t (id int)"
+  },
+  "expected": {
+    "tier": "T4"
+  }
+}

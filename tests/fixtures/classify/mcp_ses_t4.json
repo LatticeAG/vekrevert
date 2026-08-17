@@ -1,0 +1,15 @@
+{
+  "name": "mcp_ses_t4",
+  "action": {
+    "kind": "sdk_fn",
+    "name": "sdk.ses.sendEmail",
+    "target": "ses",
+    "locality": "external"
+  },
+  "args": {
+    "tool": "sendEmail"
+  },
+  "expected": {
+    "tier": "T4"
+  }
+}

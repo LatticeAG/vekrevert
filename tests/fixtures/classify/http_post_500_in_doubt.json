@@ -1,0 +1,23 @@
+{
+  "name": "http_post_500_in_doubt",
+  "action": {
+    "kind": "http",
+    "name": "http.POST.api.example.com/v1/invoices",
+    "target": "api.example.com",
+    "locality": "external"
+  },
+  "args": {
+    "method": "POST",
+    "url": "https://api.example.com/v1/invoices",
+    "body": {
+      "amount": 1
+    }
+  },
+  "ctx": {
+    "resultStatus": 500
+  },
+  "expected": {
+    "tier": "T3",
+    "in_doubt": true
+  }
+}

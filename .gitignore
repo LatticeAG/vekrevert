@@ -1,0 +1,32 @@
+# Runtime deps
+node_modules/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+__pycache__/
+*.pyc
+.venv/
+
+# Env and secrets - env-only credentials, never committed
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Internal docs - IP protection (broad wildcards, never narrow)
+*SPEC*.md
+*SEED*.md
+*ROADMAP*.md
+*REVIEW*.md
+*prompt*.md
+*WHAT-NEXT*.md
+*PLAN*.md
+
+# Logs and local state
+*.log
+.DS_Store
+out/
+tmp/
+data/

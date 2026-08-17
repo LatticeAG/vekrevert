@@ -1,0 +1,22 @@
+{
+  "name": "http_patch_no_preimage",
+  "action": {
+    "kind": "http",
+    "name": "http.PATCH.api.example.com/v1/invoices/inv_1",
+    "target": "api.example.com",
+    "locality": "external"
+  },
+  "args": {
+    "method": "PATCH",
+    "url": "https://api.example.com/v1/invoices/inv_1",
+    "body": {
+      "amount": 2
+    }
+  },
+  "ctx": {
+    "resultStatus": 200
+  },
+  "expected": {
+    "tier": "T4"
+  }
+}

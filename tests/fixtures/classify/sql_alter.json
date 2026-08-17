@@ -1,0 +1,15 @@
+{
+  "name": "sql_alter",
+  "action": {
+    "kind": "sql",
+    "name": "sql.ALTER.app.invoices",
+    "target": "app",
+    "locality": "internal"
+  },
+  "args": {
+    "sql": "ALTER TABLE invoices ADD COLUMN x int"
+  },
+  "expected": {
+    "tier": "T4"
+  }
+}

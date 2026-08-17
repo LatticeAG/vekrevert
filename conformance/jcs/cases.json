@@ -1,0 +1,52 @@
+{
+  "v": "vekrevert/v1",
+  "cases": [
+    {
+      "name": "object_key_sort",
+      "input": {
+        "b": 2,
+        "a": 1
+      },
+      "canonical": "{\"a\":1,\"b\":2}"
+    },
+    {
+      "name": "nested",
+      "input": [
+        1,
+        {
+          "z": 1,
+          "a": 0
+        },
+        null
+      ],
+      "canonical": "[1,{\"a\":0,\"z\":1},null]"
+    },
+    {
+      "name": "empty_and_euro",
+      "input": {
+        "": 0,
+        "€": "Euro"
+      },
+      "canonical": "{\"\":0,\"€\":\"Euro\"}"
+    },
+    {
+      "name": "scalars",
+      "input": {
+        "t": true,
+        "f": false,
+        "n": null,
+        "i": 0,
+        "x": 1.5,
+        "s": "quote\"slash\\"
+      },
+      "canonical": "{\"f\":false,\"i\":0,\"n\":null,\"s\":\"quote\\\"slash\\\\\",\"t\":true,\"x\":1.5}"
+    },
+    {
+      "name": "unicode_escape_ctrl",
+      "input": {
+        "k": "a\nb\tc"
+      },
+      "canonical": "{\"k\":\"a\\nb\\tc\"}"
+    }
+  ]
+}

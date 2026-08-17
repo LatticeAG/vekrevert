@@ -1,0 +1,15 @@
+{
+  "name": "sql_update_no_preimage",
+  "action": {
+    "kind": "sql",
+    "name": "sql.UPDATE.app.invoices",
+    "target": "app",
+    "locality": "internal"
+  },
+  "args": {
+    "sql": "UPDATE invoices SET n=2 WHERE id=1"
+  },
+  "expected": {
+    "tier": "T4"
+  }
+}

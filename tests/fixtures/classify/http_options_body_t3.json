@@ -1,0 +1,17 @@
+{
+  "name": "http_options_body_t3",
+  "action": {
+    "kind": "http",
+    "name": "http.OPTIONS.example.com/x",
+    "target": "example.com",
+    "locality": "external"
+  },
+  "args": {
+    "method": "OPTIONS",
+    "url": "https://example.com/x",
+    "body": "x"
+  },
+  "expected": {
+    "tier": "T3"
+  }
+}

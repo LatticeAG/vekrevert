@@ -1,0 +1,15 @@
+{
+  "name": "sql_call",
+  "action": {
+    "kind": "sql",
+    "name": "sql.CALL.app",
+    "target": "app",
+    "locality": "internal"
+  },
+  "args": {
+    "sql": "CALL do_thing(1)"
+  },
+  "expected": {
+    "tier": "T4"
+  }
+}

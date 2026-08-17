@@ -1,0 +1,23 @@
+{
+  "name": "fs_symlink_escape",
+  "action": {
+    "kind": "fs",
+    "name": "fs.write./var/app/data/link",
+    "target": "/var/app/data/link",
+    "locality": "internal"
+  },
+  "args": {
+    "op": "write",
+    "path": "/var/app/data/link",
+    "realpath": "/etc/passwd"
+  },
+  "ctx": {
+    "realpathEscapes": true,
+    "writableRoots": [
+      "/var/app/data"
+    ]
+  },
+  "expected": {
+    "tier": "T4"
+  }
+}
