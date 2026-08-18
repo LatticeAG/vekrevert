@@ -49,12 +49,21 @@ class VekRevert:
         )
 
     def plan(self, effect_id: str, allow_drafted: bool = False) -> Any:
-        if allow_drafted:
-            return {"ok": False, "error_code": "VR4005", "stage": "drafted", "detail": "drafted compensations are disabled until Phase 8"}
-        return {"ok": False, "error_code": "VR3001", "stage": "compile", "detail": "no compensator match"}
+        from latticeag_vekrevert.verify import plan_allow_drafted
+
+        return plan_allow_drafted(None, allow_drafted, self.config)
 
     def verify(self, plan_id: str) -> Any:
-        return {"verdict": "UNSURE", "plan_id": plan_id, "error_code": "VR4002"}
+        from latticeag_vekrevert.verify import verify_plan
+
+        return verify_plan(
+            {
+                "plan_id": plan_id,
+                "plan_hash": "",
+                "origin": "drafted",
+                "steps": [],
+            }
+        )
 
     def execute(self, plan_id: str, **opts: Any) -> Any:
         return {"ok": False, "plan_id": plan_id, "error_code": "VR3001"}

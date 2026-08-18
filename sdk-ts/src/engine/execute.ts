@@ -198,6 +198,22 @@ export async function executePlan(plan: CompensationPlan, opts: ExecutePlanOpts)
     });
     throw new VekRevertError("VR4005", "drafted_not_allowed");
   }
+  if (plan.origin === "drafted") {
+    const rec = plan.verification;
+    const pass = rec && rec.plan_hash === plan.plan_hash && rec.verdict === "PASS" && rec.scope_ok && !rec.overreach;
+    if (!pass) {
+      await raise({
+        ledger: opts.ledger,
+        host: opts.host,
+        saga_id: plan.saga_id,
+        effect_id: plan.effect_id,
+        reason_code: "verifier_rejected",
+        approval_binds_to: plan.plan_hash,
+      });
+      const code = rec?.overreach ? "VR4004" : rec?.verdict === "FAIL" ? "VR4001" : rec?.verdict === "UNSURE" ? "VR4002" : "VR4002";
+      throw new VekRevertError(code, rec?.reasons.join("; ") || "drafted plan requires PASS && scope_ok && !overreach");
+    }
+  }
 
   const receipt = await loadReceipt(opts.ledger, plan.effect_id);
   const keys = sortedResourceKeys(receipt.resource_keys ?? []);

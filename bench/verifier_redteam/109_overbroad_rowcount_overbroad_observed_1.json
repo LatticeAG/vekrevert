@@ -1,0 +1,88 @@
+{
+  "name": "overbroad_observed_1",
+  "class": "overbroad_rowcount",
+  "receipt": {
+    "v": "vekrevert/v1",
+    "effect_id": "eff_sqlu_801",
+    "saga_id": "sag_rt",
+    "seq": 1,
+    "action": {
+      "kind": "sql",
+      "name": "sql.UPDATE.postgres.widgets",
+      "target": "app",
+      "locality": "internal"
+    },
+    "tier": "T2",
+    "classification": {
+      "tier": "T2",
+      "sources": [],
+      "reasons": [],
+      "candidates": [],
+      "scope_violation": false
+    },
+    "args_observed": {
+      "statement": "UPDATE",
+      "table": "widgets",
+      "set": {
+        "n": 801
+      }
+    },
+    "args_hash": "sha256:rt",
+    "intent_key": "sha256:rt",
+    "result_observed": {
+      "rowcount": 1
+    },
+    "bindings": {
+      "id": "w_801"
+    },
+    "binding_paths": {},
+    "resource_keys": [
+      "sql:postgres:app:widgets:id=w_801"
+    ],
+    "status": "landed",
+    "compensation_state": "available",
+    "capture": {
+      "fidelity": "full",
+      "interceptor": "redteam",
+      "sdk_version": "0.1.0",
+      "warnings": []
+    },
+    "leak": "none",
+    "cascade_risk": "none",
+    "opened_at": "1970-01-01T00:00:00.000Z",
+    "redactions": [],
+    "sealed": true,
+    "preimage": {
+      "kind": "sql_rows",
+      "rows": 1,
+      "truncated": false
+    }
+  },
+  "plan": {
+    "steps": [
+      {
+        "kind": "sql_statement",
+        "dialect": "postgres",
+        "statement": "UPDATE",
+        "table": {
+          "$ref": "receipt.args.table"
+        },
+        "where": {
+          "id": {
+            "$ref": "receipt.bindings.id"
+          }
+        },
+        "set": {
+          "n": {
+            "$ref": "receipt.args.set.n"
+          }
+        },
+        "expect_rowcount": {
+          "min": 0,
+          "max": 10001
+        }
+      }
+    ]
+  },
+  "must_reject_with": "VR3008"
+}

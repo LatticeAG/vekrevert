@@ -16,21 +16,19 @@ import {
   type EffectReceipt,
   type JsonValue,
 } from "@latticeag/vekrevert-core";
+import { draftCompileVerify, workspaceAllowsDrafted } from "@latticeag/vekrevert";
 import { CompensatorRegistry } from "@latticeag/vekrevert/registry";
 import type { Ledger } from "@latticeag/vekrevert";
+import { loadWorkspaceConfig } from "../config.ts";
 
 type EffectProjection = NonNullable<Awaited<ReturnType<Ledger["getEffect"]>>>;
 
 export async function planCommand(argv: string[], ctx?: { ledger?: Ledger }): Promise<number> {
-  if (argv.includes("--allow-drafted")) {
-    process.stderr.write("VR4005 drafted_not_allowed\n");
-    return 4;
-  }
-
   let actionJson: string | undefined;
   let effectId: string | undefined;
   let json = false;
   let out: string | undefined;
+  let allowDrafted = false;
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!;
     if (a === "--action-json") actionJson = argv[++i];
@@ -38,10 +36,17 @@ export async function planCommand(argv: string[], ctx?: { ledger?: Ledger }): Pr
     else if (a === "--json") json = true;
     else if (a === "--out") out = argv[++i];
     else if (a.startsWith("--out=")) out = a.slice("--out=".length);
+    else if (a === "--allow-drafted") allowDrafted = true;
     else if (a.startsWith("-")) {
       process.stderr.write(`unknown flag ${a}\n`);
       return 2;
     } else if (!effectId) effectId = a;
+  }
+
+  const cfg = loadWorkspaceConfig();
+  if (allowDrafted && !workspaceAllowsDrafted(cfg)) {
+    process.stderr.write("VR4005 drafted_not_allowed\n");
+    return 4;
   }
 
   if (!actionJson && !effectId) {
@@ -76,6 +81,46 @@ export async function planCommand(argv: string[], ctx?: { ledger?: Ledger }): Pr
     const listed = await registry.list();
     const matched = matchCompensator(listed, receipt.action, receipt.args_observed, receipt.result_observed);
     signature = matched.matched ?? undefined;
+  }
+
+  if (!signature && allowDrafted) {
+    if (receipt.tier === "T4") {
+      process.stderr.write("VR4005 drafted compensations are never used for T4\n");
+      return 4;
+    }
+    try {
+      const piped = await draftCompileVerify(receipt, {
+        draft: { model: cfg.models?.drafter?.model, timeoutMs: cfg.models?.drafter?.timeoutMs },
+        verify: { model: cfg.models?.verifier?.model, timeoutMs: cfg.models?.verifier?.timeoutMs },
+      });
+      if (!("plan" in piped)) {
+        process.stderr.write(`${piped.error_code} ${piped.detail}\n`);
+        if (piped.error_code.startsWith("VR4")) return 4;
+        if (piped.error_code.startsWith("VR6")) return 6;
+        return 3;
+      }
+      const compiledDraft = piped.plan;
+      const resolvedDraft = resolvePlan(compiledDraft, receipt, {
+        id: compiledDraft.compensator_id,
+        match: { kind: "*" },
+        tier: receipt.tier,
+        binds: {},
+        compensator: { kind: "declarative", steps: compiledDraft.steps },
+        leak: compiledDraft.leak,
+        cascade_risk: compiledDraft.cascade_risk,
+        reversal_completeness: compiledDraft.reversal_completeness,
+        source: "drafted",
+      });
+      const payloadDraft = json || out ? { ...compiledDraft, resolved: resolvedDraft } : compiledDraft;
+      const textDraft = JSON.stringify(payloadDraft, null, 2) + "\n";
+      if (out) writeFileSync(out, textDraft);
+      else process.stdout.write(json || actionJson ? textDraft : `${compiledDraft.plan_id} ${compiledDraft.plan_hash} ${compiledDraft.summary}\n`);
+      return 0;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      process.stderr.write(`VR4002 ${msg}\n`);
+      return 4;
+    }
   }
 
   if (!signature) {

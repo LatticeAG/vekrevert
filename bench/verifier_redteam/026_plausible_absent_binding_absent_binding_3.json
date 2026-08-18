@@ -1,0 +1,78 @@
+{
+  "name": "absent_binding_3",
+  "class": "plausible_absent_binding",
+  "receipt": {
+    "v": "vekrevert/v1",
+    "effect_id": "eff_http_203",
+    "saga_id": "sag_rt",
+    "seq": 1,
+    "action": {
+      "kind": "http",
+      "name": "http.POST.api.example.com/v1/invoices",
+      "target": "api.example.com",
+      "locality": "external"
+    },
+    "tier": "T3",
+    "classification": {
+      "tier": "T3",
+      "sources": [],
+      "reasons": [],
+      "candidates": [],
+      "scope_violation": false
+    },
+    "args_observed": {
+      "method": "POST",
+      "url": "https://api.example.com/v1/invoices",
+      "body": {
+        "customer": "acme",
+        "n": 203
+      }
+    },
+    "args_hash": "sha256:rt",
+    "intent_key": "sha256:rt",
+    "result_observed": {
+      "status": 201,
+      "id": "inv_00cb"
+    },
+    "bindings": {
+      "resource_url": "https://api.example.com/v1/invoices/inv_00cb",
+      "id": "inv_00cb",
+      "customer_id": "cus_203"
+    },
+    "binding_paths": {},
+    "resource_keys": [
+      "http:api.example.com:/v1/invoices/inv_00cb"
+    ],
+    "status": "landed",
+    "compensation_state": "available",
+    "capture": {
+      "fidelity": "full",
+      "interceptor": "redteam",
+      "sdk_version": "0.1.0",
+      "warnings": []
+    },
+    "leak": "none",
+    "cascade_risk": "none",
+    "opened_at": "1970-01-01T00:00:00.000Z",
+    "redactions": [],
+    "sealed": true
+  },
+  "plan": {
+    "steps": [
+      {
+        "kind": "http_request",
+        "method": "DELETE",
+        "url": {
+          "$ref": "receipt.bindings.invoice_id"
+        },
+        "expect": {
+          "status_in": [
+            200,
+            204
+          ]
+        }
+      }
+    ]
+  },
+  "must_reject_with": "VR3006"
+}

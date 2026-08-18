@@ -25,6 +25,17 @@ import {
   type VerificationRecord,
   VekRevertError,
 } from "@latticeag/vekrevert-core";
+import { draftCompileVerify, workspaceAllowsDrafted } from "./verify/pipeline.ts";
+import {
+  cachedVerification,
+  cacheVerification,
+  skipVerifierRecord,
+  verificationPassesGate,
+  verifyPlan,
+} from "./verify/verifier.ts";
+import { newPlanId } from "./ulid.ts";
+import { appendChained } from "./effect.ts";
+import { raise as raiseSink } from "./escalate/sink.ts";
 import { openMemoryLedger } from "./ledger/memory.ts";
 import { openLedger } from "./ledger/open.ts";
 import type { Ledger } from "./ledger/types.ts";
@@ -73,10 +84,10 @@ export { wrapProxyRequest } from "./proxy/lexgateway.ts";
 export { preflightPolicy } from "./effect.ts";
 export { redactArgs } from "./redact.ts";
 export { putPreimage } from "./preimage/store.ts";
-
-function ni(): never {
-  throw new Error("not_implemented");
-}
+export { classifyModel, escalateOnly, classifierView } from "./classify/model.ts";
+export { draftCompensation, shapesFromReceipt, redactToShape, draftedSignature, heuristicDraft } from "./verify/drafter.ts";
+export { verifyPlan, evaluateFourQuestions, skipVerifierRecord, verificationPassesGate, cachedVerification } from "./verify/verifier.ts";
+export { draftCompileVerify, workspaceAllowsDrafted, envAllowDrafted } from "./verify/pipeline.ts";
 
 export class VekRevert {
   readonly config: VekRevertConfig;
@@ -126,8 +137,10 @@ export class VekRevert {
     });
   }
   async plan(effectId: string, opts?: { allowDrafted?: boolean }): Promise<CompensationPlan | PlanRejection> {
-    if (opts?.allowDrafted) {
-      return { ok: false, error_code: "VR4005", stage: "drafted", detail: "drafted compensations are disabled until Phase 8" };
+    const wantDraft = opts?.allowDrafted === true;
+    const allowed = workspaceAllowsDrafted(this.config);
+    if (wantDraft && !allowed) {
+      return { ok: false, error_code: "VR4005", stage: "drafted", detail: "drafted_not_allowed" };
     }
     const ledger = this.ledgerHandle ?? (await this.openLedgerHandle());
     const row = await ledger.getEffect(effectId);
@@ -136,25 +149,150 @@ export class VekRevert {
     }
     const receipt = projectionToReceipt(row);
     const matched = this.registry.match(receipt.action, receipt.args_observed, receipt.result_observed);
-    if (!matched.matched) {
+    if (matched.matched) {
+      const lowered = lowerSteps(matched.matched, receipt);
+      const compiled = compilePlan(receipt, matched.matched, {
+        origin: matched.matched.source,
+        ...(lowered ? { steps: lowered.steps } : {}),
+      });
+      if (!isPlanRejection(compiled)) {
+        try {
+          await ledger.putPlan(compiled);
+          await appendChained(
+            ledger,
+            receipt.saga_id,
+            "compensation_planned",
+            {
+              plan_id: compiled.plan_id,
+              plan_hash: compiled.plan_hash,
+              compensator_id: compiled.compensator_id,
+              origin: compiled.origin,
+              step_kinds: compiled.steps.map((s) => s.kind),
+            } as unknown as JsonValue,
+            this,
+            receipt.effect_id,
+          );
+        } catch {
+          /* plan persistence is best-effort for memory+sql */
+        }
+      }
+      return compiled;
+    }
+    if (!wantDraft || !allowed) {
       return { ok: false, error_code: "VR3001", stage: "compile", detail: "no compensator match" };
     }
-    const lowered = lowerSteps(matched.matched, receipt);
-    const compiled = compilePlan(receipt, matched.matched, {
-      origin: matched.matched.source,
-      ...(lowered ? { steps: lowered.steps } : {}),
-    });
-    if (!isPlanRejection(compiled)) {
-      try {
-        await ledger.putPlan(compiled);
-      } catch {
-        /* plan persistence is best-effort for memory+sql */
-      }
+    if (receipt.tier === "T4") {
+      await raiseSink({
+        ledger,
+        host: this,
+        saga_id: receipt.saga_id,
+        effect_id: receipt.effect_id,
+        reason_code: "t4_irreversible",
+      }).catch(() => undefined);
+      return { ok: false, error_code: "VR4005", stage: "drafted", detail: "drafted compensations are never used for T4" };
     }
-    return compiled;
+    const planId = newPlanId();
+    const piped = await draftCompileVerify(receipt, {
+      plan_id: planId,
+      draft: { model: this.config.models?.drafter?.model, timeoutMs: this.config.models?.drafter?.timeoutMs },
+      verify: { model: this.config.models?.verifier?.model, timeoutMs: this.config.models?.verifier?.timeoutMs },
+    });
+    if (!("plan" in piped)) {
+      const rej = piped;
+      try {
+        await appendChained(
+          ledger,
+          receipt.saga_id,
+          "compensation_rejected",
+          { error_code: rej.error_code, stage: rej.stage, detail: rej.detail } as unknown as JsonValue,
+          this,
+          receipt.effect_id,
+        );
+      } catch {
+        /* event is best-effort */
+      }
+      const reason =
+        rej.error_code.startsWith("VR4") && rej.error_code !== "VR4005"
+          ? "verifier_rejected"
+          : rej.error_code === "VR4005"
+            ? "drafted_not_allowed"
+            : "compile_rejected";
+      await raiseSink({
+        ledger,
+        host: this,
+        saga_id: receipt.saga_id,
+        effect_id: receipt.effect_id,
+        reason_code: reason,
+      }).catch(() => undefined);
+      return rej;
+    }
+    const ok = piped as { ok: true; plan: CompensationPlan; verification: VerificationRecord };
+    try {
+      await ledger.putPlan(ok.plan);
+      await appendChained(
+        ledger,
+        receipt.saga_id,
+        "compensation_planned",
+        {
+          plan_id: ok.plan.plan_id,
+          plan_hash: ok.plan.plan_hash,
+          compensator_id: ok.plan.compensator_id,
+          origin: ok.plan.origin,
+          step_kinds: ok.plan.steps.map((s) => s.kind),
+        } as unknown as JsonValue,
+        this,
+        receipt.effect_id,
+      );
+      await appendChained(
+        ledger,
+        receipt.saga_id,
+        "compensation_verified",
+        ok.verification as unknown as JsonValue,
+        this,
+        receipt.effect_id,
+      );
+    } catch {
+      /* persistence is best-effort */
+    }
+    return ok.plan;
   }
-  async verify(_planId: string): Promise<VerificationRecord> {
-    return ni();
+  async verify(planId: string): Promise<VerificationRecord> {
+    const ledger = this.ledgerHandle ?? (await this.openLedgerHandle());
+    const plan = await ledger.getPlan(planId);
+    if (!plan) throw new VekRevertError("VR3001", `unknown plan ${planId}`);
+    const cached = plan.verification?.plan_hash === plan.plan_hash ? plan.verification : cachedVerification(plan.plan_hash);
+    if (cached) return cached;
+    if (plan.origin === "builtin" || plan.origin === "registered") {
+      const rec = skipVerifierRecord(plan);
+      cacheVerification(rec);
+      return rec;
+    }
+    const row = await ledger.getEffect(plan.effect_id);
+    if (!row) throw new VekRevertError("VR3001", `unknown effect ${plan.effect_id}`);
+    const receipt = projectionToReceipt(row);
+    const rec = await verifyPlan(plan, receipt, {
+      model: this.config.models?.verifier?.model,
+      timeoutMs: this.config.models?.verifier?.timeoutMs,
+      drafter_model: this.config.models?.drafter?.model ?? undefined,
+    });
+    plan.verification = rec;
+    try {
+      await ledger.putPlan(plan);
+      await appendChained(ledger, plan.saga_id, "compensation_verified", rec as unknown as JsonValue, this, plan.effect_id);
+    } catch {
+      /* persist best-effort */
+    }
+    if (!verificationPassesGate(rec)) {
+      await raiseSink({
+        ledger,
+        host: this,
+        saga_id: plan.saga_id,
+        effect_id: plan.effect_id,
+        reason_code: "verifier_rejected",
+        approval_binds_to: plan.plan_hash,
+      }).catch(() => undefined);
+    }
+    return rec;
   }
   async execute(planId: string, opts?: { actor?: Actor; dryRun?: boolean } & Partial<ExecutePlanOpts>): Promise<ExecuteResult> {
     const ledger = this.ledgerHandle ?? (await this.openLedgerHandle());
@@ -333,5 +471,5 @@ export class VekRevert {
   }
 }
 
-export type { Saga };
+export type { Saga, EffectReceipt, CompensationPlan, VerificationRecord, PlanRejection } from "@latticeag/vekrevert-core";
 export { VekRevertError, SDK_VERSION, openMemoryLedger };

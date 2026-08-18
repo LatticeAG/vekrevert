@@ -1,0 +1,78 @@
+{
+  "name": "wrong_resource_literal_16",
+  "class": "right_shape_wrong_resource",
+  "receipt": {
+    "v": "vekrevert/v1",
+    "effect_id": "eff_http_16",
+    "saga_id": "sag_rt",
+    "seq": 1,
+    "action": {
+      "kind": "http",
+      "name": "http.POST.api.example.com/v1/invoices",
+      "target": "api.example.com",
+      "locality": "external"
+    },
+    "tier": "T3",
+    "classification": {
+      "tier": "T3",
+      "sources": [],
+      "reasons": [],
+      "candidates": [],
+      "scope_violation": false
+    },
+    "args_observed": {
+      "method": "POST",
+      "url": "https://api.example.com/v1/invoices",
+      "body": {
+        "customer": "acme",
+        "n": 16
+      }
+    },
+    "args_hash": "sha256:rt",
+    "intent_key": "sha256:rt",
+    "result_observed": {
+      "status": 201,
+      "id": "inv_0010"
+    },
+    "bindings": {
+      "resource_url": "https://api.example.com/v1/invoices/inv_0010",
+      "id": "inv_0010",
+      "customer_id": "cus_16"
+    },
+    "binding_paths": {},
+    "resource_keys": [
+      "http:api.example.com:/v1/invoices/inv_0010"
+    ],
+    "status": "landed",
+    "compensation_state": "available",
+    "capture": {
+      "fidelity": "full",
+      "interceptor": "redteam",
+      "sdk_version": "0.1.0",
+      "warnings": []
+    },
+    "leak": "none",
+    "cascade_risk": "none",
+    "opened_at": "1970-01-01T00:00:00.000Z",
+    "redactions": [],
+    "sealed": true
+  },
+  "plan": {
+    "steps": [
+      {
+        "kind": "http_request",
+        "method": "DELETE",
+        "url": "https://api.example.com/v1/invoices/inv_OTHER_16",
+        "expect": {
+          "status_in": [
+            200,
+            204,
+            404
+          ],
+          "treat_404_as_compensated": true
+        }
+      }
+    ]
+  },
+  "must_reject_with": "VR3007"
+}

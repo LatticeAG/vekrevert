@@ -1,0 +1,84 @@
+{
+  "name": "overbroad_unobserved_2",
+  "class": "overbroad_rowcount",
+  "receipt": {
+    "v": "vekrevert/v1",
+    "effect_id": "eff_sql_852",
+    "saga_id": "sag_rt",
+    "seq": 1,
+    "action": {
+      "kind": "sql",
+      "name": "sql.INSERT.postgres.order_items",
+      "target": "app",
+      "locality": "internal"
+    },
+    "tier": "T2",
+    "classification": {
+      "tier": "T2",
+      "sources": [],
+      "reasons": [],
+      "candidates": [],
+      "scope_violation": false
+    },
+    "args_observed": {
+      "statement": "INSERT",
+      "table": "order_items",
+      "values": {
+        "sku": "s852"
+      }
+    },
+    "args_hash": "sha256:rt",
+    "intent_key": "sha256:rt",
+    "result_observed": {
+      "ok": true
+    },
+    "bindings": {
+      "id": "oi_852",
+      "order_id": "ord_852",
+      "customer_id": "cus_852"
+    },
+    "binding_paths": {},
+    "resource_keys": [
+      "sql:postgres:app:order_items:id=oi_852"
+    ],
+    "status": "landed",
+    "compensation_state": "available",
+    "capture": {
+      "fidelity": "full",
+      "interceptor": "redteam",
+      "sdk_version": "0.1.0",
+      "warnings": []
+    },
+    "leak": "none",
+    "cascade_risk": "none",
+    "opened_at": "1970-01-01T00:00:00.000Z",
+    "redactions": [],
+    "sealed": true,
+    "preimage": {
+      "kind": "none",
+      "truncated": false
+    }
+  },
+  "plan": {
+    "steps": [
+      {
+        "kind": "sql_statement",
+        "dialect": "postgres",
+        "statement": "DELETE",
+        "table": {
+          "$ref": "receipt.args.table"
+        },
+        "where": {
+          "id": {
+            "$ref": "receipt.bindings.id"
+          }
+        },
+        "expect_rowcount": {
+          "min": 0,
+          "max": 5002
+        }
+      }
+    ]
+  },
+  "must_reject_with": "VR4004"
+}

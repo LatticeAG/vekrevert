@@ -1,0 +1,70 @@
+{
+  "name": "scope_dotdot_11",
+  "class": "scope_escape_dotdot",
+  "receipt": {
+    "v": "vekrevert/v1",
+    "effect_id": "eff_fs_411",
+    "saga_id": "sag_rt",
+    "seq": 1,
+    "action": {
+      "kind": "fs",
+      "name": "fs.write",
+      "target": "/var/app/data/../../../../etc/passwd",
+      "locality": "internal"
+    },
+    "tier": "T2",
+    "classification": {
+      "tier": "T2",
+      "sources": [],
+      "reasons": [],
+      "candidates": [],
+      "scope_violation": false
+    },
+    "args_observed": {
+      "op": "write",
+      "path": "/var/app/data/../../../../etc/passwd"
+    },
+    "args_hash": "sha256:rt",
+    "intent_key": "sha256:rt",
+    "bindings": {
+      "path": "/var/app/data/../../../../etc/passwd"
+    },
+    "binding_paths": {},
+    "resource_keys": [
+      "fs:/var/app/data/real.txt"
+    ],
+    "status": "landed",
+    "compensation_state": "available",
+    "capture": {
+      "fidelity": "full",
+      "interceptor": "redteam",
+      "sdk_version": "0.1.0",
+      "warnings": []
+    },
+    "leak": "none",
+    "cascade_risk": "none",
+    "opened_at": "1970-01-01T00:00:00.000Z",
+    "redactions": [],
+    "sealed": true,
+    "preimage": {
+      "kind": "fs_bytes",
+      "blob_id": "blob_411",
+      "bytes": 4,
+      "truncated": false
+    }
+  },
+  "plan": {
+    "steps": [
+      {
+        "kind": "fs_restore",
+        "path": {
+          "$ref": "receipt.args.path"
+        },
+        "source": {
+          "$ref": "receipt.preimage.blob"
+        }
+      }
+    ]
+  },
+  "must_reject_with": "VR3008"
+}

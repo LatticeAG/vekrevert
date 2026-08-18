@@ -15,19 +15,59 @@ import { initCommand } from "./commands/init.ts";
 import { doctorCommand } from "./commands/doctor.ts";
 import { escalateCommand, escalationsCommand } from "./commands/escalate.ts";
 import { benchCommand } from "./commands/bench.ts";
+import { verifyCommand } from "./commands/verify.ts";
 import { loadWorkspaceConfig, ledgerUrlFromConfig } from "./config.ts";
+import { SDK_VERSION } from "@latticeag/vekrevert-core";
+
+const COMMANDS = [
+  "init", "doctor", "classify", "plan", "execute", "undo", "verify",
+  "receipts", "registry", "register", "status", "probe", "replay",
+  "escalate", "escalations", "bench",
+] as const;
 
 const USAGE = `vekrevert - compensating transactions for agent side effects
 
 Usage:
   vekrevert <command> [args]
+
+Commands:
+${COMMANDS.map((c) => `  ${c}`).join("\n")}
+
+Run 'vekrevert <command> --help' for command usage.
 `;
+
+const USAGE_BY_COMMAND: Record<string, string> = {
+  init: "usage: vekrevert init <dir> [--template blank]",
+  doctor: "usage: vekrevert doctor [--json]",
+  classify: "usage: vekrevert classify <action-ref> <args-json>",
+  plan: "usage: vekrevert plan <effect-id> [--allow-drafted] [--json]",
+  execute: "usage: vekrevert execute <plan-id>",
+  undo: "usage: vekrevert undo <effect-id> [--dry-run]",
+  verify: "usage: vekrevert verify <plan-id> [--json]",
+  receipts: "usage: vekrevert receipts [effect-id] [--json]",
+  registry: "usage: vekrevert registry <list|match> [--json]",
+  register: "usage: vekrevert register <manifest> [--dry-run]",
+  status: "usage: vekrevert status [saga-id]",
+  probe: "usage: vekrevert probe <effect-id>",
+  replay: "usage: vekrevert replay <session-id>",
+  escalate: "usage: vekrevert escalate <effect-id> [--reason <text>]",
+  escalations: "usage: vekrevert escalations [--json]",
+  bench: "usage: vekrevert bench <preflight|verifier> [--corpus <dir>]",
+};
 
 export async function runCli(argv: string[]): Promise<number> {
   const cmd = argv[0];
   if (!cmd || cmd === "-h" || cmd === "--help") {
     process.stdout.write(USAGE);
     return cmd ? 0 : 2;
+  }
+  if (cmd === "-v" || cmd === "--version" || cmd === "version") {
+    process.stdout.write(`${SDK_VERSION}\n`);
+    return 0;
+  }
+  if (argv.includes("-h") || argv.includes("--help")) {
+    process.stdout.write(`${USAGE_BY_COMMAND[cmd] ?? USAGE}\n`);
+    return 0;
   }
   if (cmd === "classify") return classifyCommand(argv.slice(1));
   if (cmd === "init") return initCommand(argv.slice(1));
@@ -72,7 +112,8 @@ export async function runCli(argv: string[]): Promise<number> {
     cmd === "status" ||
     cmd === "probe" ||
     cmd === "escalate" ||
-    cmd === "escalations"
+    cmd === "escalations" ||
+    cmd === "verify"
   ) {
     const ledger = await openLedger(ledgerUrl);
     const ctx = { ledger, stdout: process.stdout, stderr: process.stderr };
@@ -85,6 +126,7 @@ export async function runCli(argv: string[]): Promise<number> {
       if (cmd === "probe") return await probeCommand(argv.slice(1), { ledger });
       if (cmd === "escalate") return await escalateCommand(argv.slice(1), { ledger });
       if (cmd === "escalations") return await escalationsCommand(argv.slice(1), { ledger });
+      if (cmd === "verify") return await verifyCommand(argv.slice(1), { ledger });
       return await replayCommand(argv.slice(1), ctx);
     } finally {
       await ledger.close();

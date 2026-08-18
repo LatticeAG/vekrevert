@@ -27,7 +27,9 @@ import {
   type PreimageRef,
   type Tier,
   type VekRevertConfig,
+  TIER_ORDER,
 } from "@latticeag/vekrevert-core";
+import { classifyModel, escalateOnly } from "./classify/model.ts";
 import type { ReceiptEvent, VekRevertEventType } from "@latticeag/vekrevert-events";
 import type { Ledger } from "./ledger/types.ts";
 import { newEventId } from "./ulid.ts";
@@ -620,6 +622,25 @@ export async function openEffect(host: EffectHost, sagaId: string, spec: EffectS
     await ledger.upsertEffect(row);
   }
 
+  if (host.config.policy?.blockT4 === true && host.config.models?.classifier) {
+    const s4 = await classifyModel(action, args, {
+      enabled: true,
+      model: host.config.models.classifier.model,
+      timeoutMs: host.config.models.classifier.timeoutMs,
+    });
+    if (s4) {
+      classification = classifyAction(
+        action,
+        args,
+        classifyCtx(host, {
+          manifest: signature as ActionSignature | undefined,
+          captureFidelity,
+          modelTier: s4.tier,
+        }),
+      );
+    }
+  }
+
   preflightPolicy(host, classification);
   beginInflight({ effect_id, fidelity: captureFidelity, intent_key });
 
@@ -981,7 +1002,53 @@ export async function closeEffect<R>(
     await ledger.upsertEffect(row);
   }
 
+  scheduleOffPathClassifier(host, ledger, opened.action, opened.args, classification.tier, opened.effect_id, opened.saga_id);
+
   return { value: opts.value, receipt, degraded: false, status, recorded: true };
+}
+
+function scheduleOffPathClassifier(
+  host: EffectHost,
+  ledger: Ledger,
+  action: ActionRef,
+  args: JsonValue,
+  current: Tier,
+  effectId: string,
+  sagaId: string,
+): void {
+  const cfg = host.config.models?.classifier;
+  if (!cfg) return;
+  void classifyModel(action, args, {
+    enabled: true,
+    model: cfg.model,
+    timeoutMs: cfg.timeoutMs,
+  })
+    .then(async (s4) => {
+      if (!s4) return;
+      const raised = escalateOnly(current, s4.tier);
+      if (TIER_ORDER[raised] <= TIER_ORDER[current]) return;
+      const row = await ledger.getEffect(effectId);
+      if (!row) return;
+      if (TIER_ORDER[raised] <= TIER_ORDER[row.tier as Tier]) return;
+      row.tier = raised;
+      await ledger.upsertEffect(row);
+      await appendChained(
+        ledger,
+        sagaId,
+        "reversibility_classified",
+        {
+          action,
+          tier: raised,
+          sources: [{ source: "model", tier: s4.tier, reasons: s4.reasons }],
+          reasons: s4.reasons,
+          candidates: [],
+          scope_violation: false,
+        } as unknown as JsonValue,
+        host,
+        effectId,
+      );
+    })
+    .catch(() => undefined);
 }
 
 export async function reconcileOpenedAsInDoubt(host: EffectHost, sagaId: string): Promise<void> {

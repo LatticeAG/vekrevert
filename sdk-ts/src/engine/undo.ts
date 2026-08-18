@@ -13,6 +13,8 @@ import {
   type VRCode,
 } from "@latticeag/vekrevert-core";
 import { lowerSteps } from "@latticeag/vekrevert-compensators";
+import { draftCompileVerify } from "../verify/pipeline.ts";
+import { newPlanId } from "../ulid.ts";
 import { appendChained, projectionToReceipt, type EffectHost } from "../effect.ts";
 import type { EffectProjection, Ledger } from "../ledger/types.ts";
 import type { CompensatorRegistry } from "../registry.ts";
@@ -138,14 +140,33 @@ async function resolveInDoubt(
 
 async function compileFor(row: EffectProjection, receipt: EffectReceipt, opts: UndoEngineOpts): Promise<CompensationPlan | { error_code: VRCode; detail: string }> {
   const matched = opts.registry.match(receipt.action, receipt.args_observed, receipt.result_observed);
-  if (!matched.matched) return { error_code: "VR3001", detail: "no compensator match" };
-  const lowered = lowerSteps(matched.matched, receipt);
-  const plan = compilePlan(receipt, matched.matched, {
-    origin: matched.matched.source,
-    ...(lowered ? { steps: lowered.steps } : {}),
+  if (matched.matched) {
+    const lowered = lowerSteps(matched.matched, receipt);
+    const plan = compilePlan(receipt, matched.matched, {
+      origin: matched.matched.source,
+      ...(lowered ? { steps: lowered.steps } : {}),
+      now: opts.now,
+    });
+    if (isPlanRejection(plan)) return { error_code: plan.error_code, detail: plan.detail };
+    return plan;
+  }
+  if (!opts.allowDrafted) return { error_code: "VR3001", detail: "no compensator match" };
+  if (receipt.tier === "T4") return { error_code: "VR4005", detail: "drafted compensations are never used for T4" };
+  const piped = await draftCompileVerify(receipt, {
+    plan_id: newPlanId(),
     now: opts.now,
+    draft: { model: opts.host.config.models?.drafter?.model, timeoutMs: opts.host.config.models?.drafter?.timeoutMs },
+    verify: { model: opts.host.config.models?.verifier?.model, timeoutMs: opts.host.config.models?.verifier?.timeoutMs },
   });
-  if (isPlanRejection(plan)) return { error_code: plan.error_code, detail: plan.detail };
+  if (!("plan" in piped)) {
+    return { error_code: piped.error_code, detail: piped.detail };
+  }
+  const plan = piped.plan;
+  try {
+    await opts.ledger.putPlan(plan);
+  } catch {
+    /* best-effort */
+  }
   return plan;
 }
 
