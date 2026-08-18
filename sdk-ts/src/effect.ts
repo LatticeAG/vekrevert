@@ -35,9 +35,15 @@ import type { Ledger } from "./ledger/types.ts";
 import { newEventId } from "./ulid.ts";
 import { redactArgs } from "./redact.ts";
 import { putPreimage, type PreimagePutInput } from "./preimage/store.ts";
-import type { CompensatorRegistry } from "./registry.ts";
+import { hostedModeActive, signatureVerifiedForS1, type CompensatorRegistry } from "./registry.ts";
 import { getCompensationContext } from "./engine/context.ts";
 import { beginInflight, endInflight, findInflight, fidelityRank } from "./capture/inflight.ts";
+import {
+  applyLexShieldPolicy,
+  evaluateLexShield,
+  lexshieldConfigured,
+  throwIfT4Blocked,
+} from "./policy/lexshield.ts";
 
 const SCALAR_BIND_MAX = 512;
 
@@ -51,6 +57,12 @@ export interface EffectHost {
   registry?: CompensatorRegistry;
   currentSagaId?: string;
   fetch?: typeof fetch;
+}
+
+function s1Manifest(host: EffectHost, signature?: Partial<ActionSignature>): ActionSignature | undefined {
+  if (!signature || !signature.id || !signature.match || !signature.tier) return signature as ActionSignature | undefined;
+  const hosted = hostedModeActive(host.config.ledger);
+  return signatureVerifiedForS1(signature as ActionSignature, hosted);
 }
 
 export interface CapturePreimageInput extends PreimagePutInput {}
@@ -378,11 +390,49 @@ function classifyCtx(host: EffectHost, extra: Record<string, unknown> = {}) {
   };
 }
 
-/** EP1 local T4 policy. LexShield adapter is Phase 9. */
-export function preflightPolicy(host: EffectHost, classification: ClassificationRecord): void {
-  if (host.config.policy?.blockT4 === true && classification.tier === "T4") {
+/** Sync local T4 policy for instrumented sync paths (fs.writeFileSync). */
+export function preflightPolicyLocal(host: EffectHost, classification: ClassificationRecord): void {
+  const blockT4 = host.config.policy?.blockT4 === true;
+  if (!blockT4) return;
+  if (lexshieldConfigured() && classification.tier === "T4") {
     throw new VekRevertError("VR1010", "t4_blocked");
   }
+  if (classification.tier === "T4") {
+    throw new VekRevertError("VR1010", "t4_blocked");
+  }
+}
+
+/**
+ * EP1 T4 policy. Local blockT4 when LexShield is unset.
+ * When LEXSHIELD_URL is set: BLOCK/CHALLENGE (and unreachable) fail-closed iff blockT4.
+ */
+export async function preflightPolicy(
+  host: EffectHost,
+  classification: ClassificationRecord,
+  action?: ActionRef,
+): Promise<void> {
+  const blockT4 = host.config.policy?.blockT4 === true;
+  if (!lexshieldConfigured()) {
+    if (blockT4 && classification.tier === "T4") {
+      throw new VekRevertError("VR1010", "t4_blocked");
+    }
+    return;
+  }
+  const result = await evaluateLexShield({
+    tool: action?.name ?? classification.sources[0]?.reasons[0] ?? "action",
+    args: { tier: classification.tier, reasons: classification.reasons, action: action ?? null },
+    fetch: host.fetch,
+  });
+  const applied = applyLexShieldPolicy(blockT4, classification.tier, result);
+  if (applied.record && !classification.reasons.includes(applied.record)) {
+    classification.reasons.push(applied.record);
+  }
+  throwIfT4Blocked(applied.block);
+}
+
+/** Back-compat sync wrapper used by capture/fs.ts. */
+export function preflightPolicySync(host: EffectHost, classification: ClassificationRecord): void {
+  preflightPolicyLocal(host, classification);
 }
 
 export async function openEffect(host: EffectHost, sagaId: string, spec: EffectSpec): Promise<OpenedEffect> {
@@ -438,10 +488,11 @@ export async function openEffect(host: EffectHost, sagaId: string, spec: EffectS
 
   const captureFidelity = spec.capture?.fidelity ?? "full";
   const captureInterceptor = spec.capture?.interceptor ?? "sdk-ts";
+  const manifest = s1Manifest(host, signature);
   let classification = classifyAction(
     action,
     args,
-    classifyCtx(host, { manifest: signature as ActionSignature | undefined, captureFidelity }),
+    classifyCtx(host, { manifest, captureFidelity }),
   );
   const recordT1 = host.config.recordT1 === true;
 
@@ -497,9 +548,9 @@ export async function openEffect(host: EffectHost, sagaId: string, spec: EffectS
   }
 
   if (preimage?.truncated) {
-    classification = classifyAction(action, args, classifyCtx(host, { preimage, manifest: signature as ActionSignature | undefined, captureFidelity }));
+    classification = classifyAction(action, args, classifyCtx(host, { preimage, manifest, captureFidelity }));
   } else if (preimage) {
-    classification = classifyAction(action, args, classifyCtx(host, { preimage, manifest: signature as ActionSignature | undefined, captureFidelity }));
+    classification = classifyAction(action, args, classifyCtx(host, { preimage, manifest, captureFidelity }));
   }
 
   const saga = await ledger.getSaga(sagaId);
@@ -633,7 +684,7 @@ export async function openEffect(host: EffectHost, sagaId: string, spec: EffectS
         action,
         args,
         classifyCtx(host, {
-          manifest: signature as ActionSignature | undefined,
+          manifest,
           captureFidelity,
           modelTier: s4.tier,
         }),
@@ -641,7 +692,12 @@ export async function openEffect(host: EffectHost, sagaId: string, spec: EffectS
     }
   }
 
-  preflightPolicy(host, classification);
+  await preflightPolicy(host, classification, action);
+  if (row && row.classification !== (classification as unknown as JsonValue)) {
+    row.classification = classification as unknown as JsonValue;
+    row.tier = classification.tier;
+    await ledger.upsertEffect(row);
+  }
   beginInflight({ effect_id, fidelity: captureFidelity, intent_key });
 
   return {
@@ -735,6 +791,11 @@ export async function closeEffect<R>(
       captureFidelity: opened.capture_fidelity,
     }),
   );
+  for (const reason of opened.classification.reasons) {
+    if (reason.startsWith("lexshield_") && !classification.reasons.includes(reason)) {
+      classification.reasons.push(reason);
+    }
+  }
 
   let status: EffectStatus = opts.status ?? "landed";
   if (opts.error && status === "landed") status = "failed";

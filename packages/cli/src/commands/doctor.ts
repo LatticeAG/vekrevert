@@ -23,6 +23,60 @@ function envFlag(name: string): string {
   return process.env[name] ? "set" : "unset";
 }
 
+const PROBE_MS = 2_000;
+
+function joinUrl(base: string, path: string): string {
+  const root = base.endsWith("/") ? base.slice(0, -1) : base;
+  const suffix = path.startsWith("/") ? path : `/${path}`;
+  return `${root}${suffix}`;
+}
+
+function bearerHeaders(envName: string, extra?: Record<string, string>): Record<string, string> {
+  const headers: Record<string, string> = { accept: "application/json", ...extra };
+  const key = process.env[envName];
+  if (key) headers.authorization = `Bearer ${key}`;
+  return headers;
+}
+
+function schemaRejected(status?: number, body?: string): boolean {
+  if (status === 406 || status === 415) return true;
+  if (!body) return false;
+  const t = body.toLowerCase();
+  if (t.includes("schema_rejected") || t.includes("schema rejection")) return true;
+  if (
+    t.includes("vekrevert/v1") &&
+    (t.includes("not admit") || t.includes("unsupported schema") || t.includes("rejected"))
+  ) {
+    return true;
+  }
+  return false;
+}
+
+async function probeHttp(
+  url: string,
+  init: RequestInit = {},
+): Promise<{ ok: boolean; status?: number; body?: string }> {
+  try {
+    const res = await fetch(url, { ...init, signal: AbortSignal.timeout(PROBE_MS) });
+    const body = await res.text().catch(() => "");
+    return { ok: res.status >= 200 && res.status < 300, status: res.status, body };
+  } catch {
+    return { ok: false };
+  }
+}
+
+async function probeHealthOrBase(
+  baseUrl: string,
+  headers: Record<string, string>,
+): Promise<{ ok: boolean; schemaRejected: boolean }> {
+  const health = await probeHttp(joinUrl(baseUrl, "/health"), { headers });
+  if (schemaRejected(health.status, health.body)) return { ok: false, schemaRejected: true };
+  if (health.ok) return { ok: true, schemaRejected: false };
+  const root = await probeHttp(baseUrl, { headers });
+  if (schemaRejected(root.status, root.body)) return { ok: false, schemaRejected: true };
+  return { ok: root.ok, schemaRejected: false };
+}
+
 export async function doctorCommand(argv: string[]): Promise<number> {
   const json = argv.includes("--json");
   const cwd = process.cwd();
@@ -112,13 +166,54 @@ export async function doctorCommand(argv: string[]): Promise<number> {
     checks.push({ n: 5, name: "builtins", status: "fail", detail: err instanceof Error ? err.message : String(err) });
   }
 
-  // 6. @latticeag/events admits vekrevert/v1. Missing package => skipped (D19).
-  try {
+  // 6. @latticeag/events (or vekrevert-events) admits vekrevert/v1. Hosted probe is warn-on-fail.
+  {
     const req = createRequire(import.meta.url);
-    req.resolve("@latticeag/events");
-    checks.push({ n: 6, name: "events", status: "pass", detail: "@latticeag/events admits vekrevert/v1" });
-  } catch {
-    checks.push({ n: 6, name: "events", status: "skip", detail: "@latticeag/events not installed (standalone events-ext)" });
+    let eventsDetail = "@latticeag/events not installed (standalone events-ext)";
+    let eventsStatus: Status = "skip";
+    try {
+      req.resolve("@latticeag/events");
+      eventsStatus = "pass";
+      eventsDetail = "@latticeag/events admits vekrevert/v1";
+    } catch {
+      try {
+        req.resolve("@latticeag/vekrevert-events");
+        eventsStatus = "pass";
+        eventsDetail = "@latticeag/vekrevert-events admits vekrevert/v1";
+      } catch {
+        /* D19: missing umbrella is skip, not fail */
+      }
+    }
+    const ledgerUrl = process.env.VEKREVERT_LEDGER ?? cfg.ledger ?? "";
+    const hosted = ledgerUrl.startsWith("http://") || ledgerUrl.startsWith("https://");
+    if (!hosted) {
+      checks.push({ n: 6, name: "events", status: eventsStatus, detail: eventsDetail });
+    } else {
+      const keyFlag = `VEKREVERT_API_KEY ${envFlag("VEKREVERT_API_KEY")}`;
+      const probe = await probeHealthOrBase(ledgerUrl, bearerHeaders("VEKREVERT_API_KEY"));
+      if (probe.schemaRejected) {
+        checks.push({
+          n: 6,
+          name: "events",
+          status: "fail",
+          detail: `${eventsDetail}; hosted schema rejected vekrevert/v1; ${keyFlag}`,
+        });
+      } else if (!probe.ok) {
+        checks.push({
+          n: 6,
+          name: "events",
+          status: "warn",
+          detail: `${eventsDetail}; hosted probe unreachable; ${keyFlag}`,
+        });
+      } else {
+        checks.push({
+          n: 6,
+          name: "events",
+          status: "pass",
+          detail: `${eventsStatus === "pass" ? eventsDetail : "hosted admits vekrevert/v1"}; hosted health ok; ${keyFlag}`,
+        });
+      }
+    }
   }
 
   // 7. Credential names resolve (presence only).
@@ -152,17 +247,43 @@ export async function doctorCommand(argv: string[]): Promise<number> {
     }
   }
 
-  // 9. Model roles: null = disabled, not broken.
+  // 9. Model roles: null = disabled, not broken. LexShield probe is warn-on-unreachable.
   {
     const models = cfg.models ?? { classifier: null, drafter: null, verifier: null };
     const roles = ["classifier", "drafter", "verifier"] as const;
     const disabled = roles.filter((r) => models[r] == null);
-    checks.push({
-      n: 9,
-      name: "models",
-      status: "pass",
-      detail: `${disabled.join(", ") || "none"} disabled`,
-    });
+    const modelDetail = `${disabled.join(", ") || "none"} disabled`;
+    const tokenFlags = `LEXSHIELD_TOKEN ${envFlag("LEXSHIELD_TOKEN")} LEXSHIELD_API_KEY ${envFlag("LEXSHIELD_API_KEY")}`;
+    const lexUrl = process.env.LEXSHIELD_URL;
+    if (!lexUrl) {
+      checks.push({
+        n: 9,
+        name: "models",
+        status: "pass",
+        detail: `${modelDetail}; LEXSHIELD_URL unset; ${tokenFlags}`,
+      });
+    } else {
+      const headers = {
+        ...bearerHeaders("LEXSHIELD_TOKEN"),
+        ...bearerHeaders("LEXSHIELD_API_KEY"),
+      };
+      const health = await probeHttp(joinUrl(lexUrl, "/health"), { headers });
+      let reachable = health.ok;
+      if (!reachable) {
+        const evaluated = await probeHttp(joinUrl(lexUrl, "/evaluate"), {
+          method: "POST",
+          headers: { ...headers, "content-type": "application/json" },
+          body: JSON.stringify({ tool: "doctor.probe", args: {} }),
+        });
+        reachable = evaluated.ok;
+      }
+      checks.push({
+        n: 9,
+        name: "models",
+        status: reachable ? "pass" : "warn",
+        detail: `${modelDetail}; lexshield ${reachable ? "reachable" : "unreachable"}; ${tokenFlags}`,
+      });
+    }
   }
 
   // 10. VekInbox reachable and webhook secret set, if configured.
@@ -172,11 +293,19 @@ export async function doctorCommand(argv: string[]): Promise<number> {
       checks.push({ n: 10, name: "vekinbox", status: "skip", detail: `not configured; VEKINBOX_API_KEY ${envFlag("VEKINBOX_API_KEY")} VEKINBOX_WEBHOOK_SECRET ${envFlag("VEKINBOX_WEBHOOK_SECRET")}` });
     } else {
       const secret = envFlag("VEKINBOX_WEBHOOK_SECRET");
+      const key = envFlag("VEKINBOX_API_KEY");
+      const headers = bearerHeaders("VEKINBOX_API_KEY");
+      const root = await probeHttp(inbox.baseUrl, { headers });
+      let reachable = root.ok;
+      if (!reachable) {
+        const health = await probeHttp(joinUrl(inbox.baseUrl, "/health"), { headers });
+        reachable = health.ok;
+      }
       checks.push({
         n: 10,
         name: "vekinbox",
-        status: secret === "set" ? "pass" : "warn",
-        detail: `configured; webhook secret ${secret}; api key ${envFlag("VEKINBOX_API_KEY")}`,
+        status: reachable ? "pass" : "warn",
+        detail: `configured; webhook secret ${secret}; api key ${key}; ${reachable ? "reachable" : "unreachable"}`,
       });
     }
   }

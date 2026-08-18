@@ -45,7 +45,10 @@ export interface VekRevertLike {
 
 export async function ensureLedger(vr: VekRevertLike): Promise<Ledger> {
   if (vr.ledgerHandle) return vr.ledgerHandle;
-  vr.ledgerHandle = await openLedger(vr.config.ledger, vr.config.ledgerOpts);
+  vr.ledgerHandle = await openLedger(vr.config.ledger, {
+    ...vr.config.ledgerOpts,
+    fetch: (vr as { fetch?: typeof fetch }).fetch,
+  });
   return vr.ledgerHandle;
 }
 

@@ -1,20 +1,30 @@
-/** vekrevert register <path...> [--dry-run] [--sign] [--force] */
+/** vekrevert register <path...> [--dry-run] [--sign] [--force] [--keygen] */
 
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { createPrivateKey, sign as edSign } from "node:crypto";
+import { generateKeyPairSync } from "node:crypto";
 import { parse as parseYaml } from "yaml";
-import { canonicalize, isPlanRejection, type ActionSignature, type JsonValue } from "@latticeag/vekrevert-core";
-import { CompensatorRegistry, gateManifest } from "@latticeag/vekrevert/registry";
+import { isPlanRejection, type ActionSignature } from "@latticeag/vekrevert-core";
+import { CompensatorRegistry, gateManifest, signManifest } from "@latticeag/vekrevert/registry";
 
 export async function registerCommand(argv: string[], ctx?: { ledger?: unknown }): Promise<number> {
+  if (argv.includes("--keygen")) {
+    const { privateKey, publicKey } = generateKeyPairSync("ed25519");
+    process.stdout.write("VEKREVERT_SIGNING_KEY (private)\n");
+    process.stdout.write(privateKey.export({ type: "pkcs8", format: "pem" }).toString());
+    process.stdout.write("\n");
+    process.stdout.write("VEKREVERT_VERIFY_KEY (public)\n");
+    process.stdout.write(publicKey.export({ type: "spki", format: "pem" }).toString());
+    return 0;
+  }
+
   const dryRun = argv.includes("--dry-run");
   const signFlag = argv.includes("--sign");
   const force = argv.includes("--force");
   const paths = argv.filter((a) => !a.startsWith("-"));
   if (paths.length === 0) {
-    process.stderr.write("usage: vekrevert register <path...> [--dry-run] [--sign] [--force]\n");
+    process.stderr.write("usage: vekrevert register <path...> [--dry-run] [--sign] [--force] [--keygen]\n");
     return 2;
   }
 
@@ -35,9 +45,7 @@ export async function registerCommand(argv: string[], ctx?: { ledger?: unknown }
       return 2;
     }
     for (const m of loaded) {
-      const { signature: _s, ...rest } = m;
-      const bytes = Buffer.from(canonicalize(rest as unknown as JsonValue));
-      m.signature = edSign(null, bytes, createPrivateKey(pem)).toString("base64");
+      m.signature = signManifest(m, pem);
     }
   }
 

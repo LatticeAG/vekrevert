@@ -9,20 +9,27 @@ function envAllowDrafted(): boolean {
   return v === "1" || v === "true" || v === "TRUE" || v === "yes";
 }
 
+function envBlockT4(): boolean | undefined {
+  const v = process.env.VEKREVERT_BLOCK_T4;
+  if (v == null || v === "") return undefined;
+  return v === "1" || v === "true" || v === "TRUE" || v === "yes";
+}
+
 export function loadWorkspaceConfig(cwd: string = process.cwd()): VekRevertConfig {
   const file = join(cwd, "vekrevert.config.json");
   if (existsSync(file)) {
     const raw = JSON.parse(readFileSync(file, "utf8")) as VekRevertConfig;
     return {
       ...raw,
+      ledger: process.env.VEKREVERT_LEDGER ?? raw.ledger,
       allowDrafted: raw.allowDrafted === true || envAllowDrafted(),
-      policy: { blockT4: false, ...raw.policy },
+      policy: { blockT4: envBlockT4() ?? raw.policy?.blockT4 ?? false, ...raw.policy, ...(envBlockT4() != null ? { blockT4: envBlockT4() } : {}) },
     };
   }
   return {
     ledger: process.env.VEKREVERT_LEDGER ?? "sqlite:./.vekrevert/ledger.db",
     allowDrafted: envAllowDrafted(),
-    policy: { blockT4: false },
+    policy: { blockT4: envBlockT4() ?? false },
   };
 }
 

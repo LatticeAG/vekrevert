@@ -40,7 +40,7 @@ import { openMemoryLedger } from "./ledger/memory.ts";
 import { openLedger } from "./ledger/open.ts";
 import type { Ledger } from "./ledger/types.ts";
 import { openSaga, resumeSaga, type SagaHandle } from "./saga.ts";
-import { CompensatorRegistry } from "./registry.ts";
+import { CompensatorRegistry, hostedModeActive } from "./registry.ts";
 import { createCredentialProvider } from "./credentials.ts";
 import { projectionToReceipt, openEffect, closeEffect } from "./effect.ts";
 import { builtins, lowerSteps } from "@latticeag/vekrevert-compensators";
@@ -58,7 +58,23 @@ import type { StepDbHandle } from "./engine/step.ts";
 
 export { defineConfig } from "./config.ts";
 export { openLedger, parseLedgerUrl, DEFAULT_SQLITE_PATH } from "./ledger/open.ts";
+export { openHttpLedger, isHostedLedgerUrl, clientChain, hostedAuthHeaders } from "./ledger/http.ts";
 export type { Ledger, LedgerKind, LedgerOpenOptions } from "./ledger/types.ts";
+export {
+  evaluateLexShield,
+  lexshieldConfigured,
+  lexshieldEnv,
+  applyLexShieldPolicy,
+} from "./policy/lexshield.ts";
+export type { LexShieldResult, LexShieldDecision } from "./policy/lexshield.ts";
+export {
+  CompensatorRegistry,
+  hostedModeActive,
+  signManifest,
+  verifyManifestSignature,
+  signatureVerifiedForS1,
+  manifestBytesForSignature,
+} from "./registry.ts";
 export { ulid, newSagaId, newEventId, newPlanId, newAttemptId, newEscalationId } from "./ulid.ts";
 export type { VekRevertConfig };
 export { attachSagaMethods, openSaga, resumeSaga } from "./saga.ts";
@@ -70,7 +86,7 @@ export { executePlan, getCompensationContext, runWithCompensationContext } from 
 export type { ExecutePlanOpts, CompensationContext } from "./engine/execute.ts";
 export { undoSaga, transition } from "./engine/undo.ts";
 export type { UndoEngineOpts } from "./engine/undo.ts";
-export { acquireAll, assertFences, releaseAll, inspectFence, heartbeatAll } from "./engine/lease.ts";
+export { acquireAll, assertFences, releaseAll, inspectFence, heartbeatAll, isSharedLeaseLedger, leaseHolder } from "./engine/lease.ts";
 export type { HeldLeases, AcquireAllOpts } from "./engine/lease.ts";
 export { probeEffect, probeOnce } from "./engine/probe.ts";
 export type { ProbeOpts, ProbeResult } from "./engine/probe.ts";
@@ -81,7 +97,7 @@ export { instrumentFs } from "./capture/fs.ts";
 export { instrumentPg, instrumentSqlite } from "./capture/sql.ts";
 export { wrapMcpServer } from "./capture/mcp.ts";
 export { wrapProxyRequest } from "./proxy/lexgateway.ts";
-export { preflightPolicy } from "./effect.ts";
+export { preflightPolicy, preflightPolicyLocal } from "./effect.ts";
 export { redactArgs } from "./redact.ts";
 export { putPreimage } from "./preimage/store.ts";
 export { classifyModel, escalateOnly, classifierView } from "./classify/model.ts";
@@ -111,7 +127,7 @@ export class VekRevert {
     if (config.ledger === "memory" || config.ledger.startsWith("memory:")) {
       openMemoryLedger();
     }
-    this.registry = new CompensatorRegistry();
+    this.registry = new CompensatorRegistry({ hosted: hostedModeActive(config.ledger) });
     this.credentials = createCredentialProvider(config.credentials);
     void this.registry.register(builtins, { force: true });
     const extra = (config.compensators ?? []).filter((c): c is ActionSignature => typeof c !== "string");
@@ -119,7 +135,7 @@ export class VekRevert {
   }
 
   async openLedgerHandle(): Promise<Ledger> {
-    this.ledgerHandle = await openLedger(this.config.ledger, this.config.ledgerOpts);
+    this.ledgerHandle = await openLedger(this.config.ledger, { ...this.config.ledgerOpts, fetch: this.fetch });
     return this.ledgerHandle;
   }
 

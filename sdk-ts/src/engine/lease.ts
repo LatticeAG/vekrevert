@@ -1,7 +1,16 @@
 /** Resource-scoped pessimistic leases with fencing (D4). Sorted acquire prevents deadlock. */
 
 import { DEFAULT_LEASE, VekRevertError } from "@latticeag/vekrevert-core";
-import type { Ledger } from "../ledger/types.ts";
+import type { Ledger, LedgerKind } from "../ledger/types.ts";
+
+/** Shared (cross-process) leases live on postgres and hosted http. Local kinds stay process-private. */
+export function isSharedLeaseLedger(kind: LedgerKind | string | undefined): boolean {
+  return kind === "postgres" || kind === "http";
+}
+
+export function leaseHolder(processId: string, sagaId: string, attemptId: string): string {
+  return `${processId}:${sagaId}:${attemptId}`;
+}
 
 export interface AcquireAllOpts {
   ledger: Ledger;

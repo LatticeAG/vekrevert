@@ -2,7 +2,9 @@
 
 import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
+import { createPrivateKey, createPublicKey, sign as edSign, verify as edVerify } from "node:crypto";
 import {
+  canonicalize,
   compilePlan,
   isPlanRejection,
   isRef,
@@ -21,6 +23,54 @@ import {
   type RegisterResult,
   type VRCode,
 } from "@latticeag/vekrevert-core";
+import { isHostedLedgerUrl } from "./ledger/http.ts";
+
+export function hostedModeActive(ledgerUrl?: string): boolean {
+  if (isHostedLedgerUrl(ledgerUrl) || isHostedLedgerUrl(process.env.VEKREVERT_LEDGER)) return true;
+  return Boolean(process.env.VEKREVERT_VERIFY_KEY);
+}
+
+export function manifestBytesForSignature(m: ActionSignature): Buffer {
+  const { signature: _s, registered_at: _r, disabled: _d, ...rest } = m;
+  return Buffer.from(canonicalize(rest as unknown as JsonValue));
+}
+
+export function signManifest(m: ActionSignature, privateKeyPem: string): string {
+  return edSign(null, manifestBytesForSignature(m), createPrivateKey(privateKeyPem)).toString("base64");
+}
+
+export function verifyKeyFromEnv(): string | undefined {
+  const pub = process.env.VEKREVERT_VERIFY_KEY;
+  if (pub) return pub;
+  const priv = process.env.VEKREVERT_SIGNING_KEY;
+  if (!priv) return undefined;
+  try {
+    return createPublicKey(createPrivateKey(priv))
+      .export({ type: "spki", format: "pem" })
+      .toString();
+  } catch {
+    return undefined;
+  }
+}
+
+export function verifyManifestSignature(m: ActionSignature, publicKeyPem?: string): boolean {
+  if (!m.signature) return false;
+  const pem = publicKeyPem ?? verifyKeyFromEnv();
+  if (!pem) return false;
+  try {
+    return edVerify(null, manifestBytesForSignature(m), createPublicKey(pem), Buffer.from(m.signature, "base64"));
+  } catch {
+    return false;
+  }
+}
+
+/** S1: hosted matching uses only a signature-verified manifest tier. */
+export function signatureVerifiedForS1(sig: ActionSignature, hosted: boolean): ActionSignature | undefined {
+  if (!hosted) return sig;
+  if (sig.source === "builtin") return sig;
+  if (verifyManifestSignature(sig)) return sig;
+  return undefined;
+}
 
 export interface CompensatorRow {
   id: string;
@@ -61,10 +111,20 @@ export class CompensatorRegistry {
   private memory = new Map<string, CompensatorRow>();
   private store?: CompensatorStore;
   private now: () => Date;
+  private hosted: boolean;
 
-  constructor(opts?: { ledger?: unknown; now?: () => Date }) {
+  constructor(opts?: { ledger?: unknown; now?: () => Date; hosted?: boolean }) {
     this.now = opts?.now ?? (() => new Date());
     if (hasStore(opts?.ledger)) this.store = opts.ledger;
+    const kind =
+      opts?.ledger && typeof opts.ledger === "object" && "kind" in opts.ledger
+        ? String((opts.ledger as { kind?: unknown }).kind)
+        : undefined;
+    this.hosted = opts?.hosted ?? (kind === "http" || hostedModeActive());
+  }
+
+  get hostedMode(): boolean {
+    return this.hosted;
   }
 
   async hydrate(): Promise<void> {
@@ -83,6 +143,14 @@ export class CompensatorRegistry {
           ? gateDeclarativeManifest(sig, { now: this.now() })
           : await gateManifest(sig, { now: this.now() });
       if (!g.ok) return { ok: false, ids: [], error_code: g.error_code, detail: g.detail };
+      if (this.hosted && g.signature.source === "registered") {
+        if (!g.signature.signature) {
+          return { ok: false, ids: [], error_code: "VR6003", detail: "hosted register requires ActionSignature.signature" };
+        }
+        if (!verifyManifestSignature(g.signature)) {
+          return { ok: false, ids: [], error_code: "VR6003", detail: "bad_signature" };
+        }
+      }
       if (!opts?.force && this.memory.has(g.signature.id)) {
         return { ok: false, ids: [], error_code: "VR3005", detail: `already registered: ${g.signature.id}` };
       }
@@ -106,7 +174,10 @@ export class CompensatorRegistry {
   }
 
   match(action: ActionRef, args: JsonValue, result?: JsonValue): MatchResult {
-    const registry = [...this.memory.values()].filter((r) => !r.disabled).map((r) => r.manifest);
+    const registry = [...this.memory.values()]
+      .filter((r) => !r.disabled)
+      .map((r) => r.manifest)
+      .filter((m) => !this.hosted || m.source === "builtin" || verifyManifestSignature(m));
     const r = matchCompensator(registry, action, args, result);
     return { matched: r.matched, candidates: r.candidates };
   }
@@ -122,8 +193,13 @@ export class CompensatorRegistry {
     for (const row of this.memory.values()) {
       const g = await gateManifest(row.manifest, { now: this.now() });
       if (!g.ok) return { ok: false, error_code: g.error_code, detail: g.detail, ids };
-      if (opts?.strict && row.manifest.signature) {
-        /* signature bytes are verified when present; hosted-only key material is out of scope here */
+      if ((opts?.strict || this.hosted) && row.manifest.source === "registered") {
+        if (row.manifest.signature && !verifyManifestSignature(row.manifest)) {
+          return { ok: false, error_code: "VR6003", detail: `bad_signature ${row.id}`, ids };
+        }
+        if (this.hosted && !row.manifest.signature) {
+          return { ok: false, error_code: "VR6003", detail: `unsigned hosted manifest ${row.id}`, ids };
+        }
       }
       ids.push(row.id);
     }

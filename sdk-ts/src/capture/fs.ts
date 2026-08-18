@@ -3,7 +3,7 @@
 import * as nodeFs from "node:fs";
 import { dirname } from "node:path";
 import { classifyAction, type ActionRef, type JsonValue } from "@latticeag/vekrevert-core";
-import { closeEffect, openEffect, preflightPolicy, type EffectHost } from "../effect.ts";
+import { closeEffect, openEffect, preflightPolicyLocal, type EffectHost } from "../effect.ts";
 
 type FsModule = typeof import("node:fs");
 type FsPromises = typeof import("node:fs/promises");
@@ -87,7 +87,7 @@ function preflightSync(host: EffectHost, op: string, path: string, extraArgs: Re
     },
     captureFidelity: "full",
   });
-  preflightPolicy(host, classification);
+  preflightPolicyLocal(host, classification);
 }
 
 function recordAfter(host: EffectHost, op: string, path: string, extraArgs: Record<string, JsonValue>, pre: PreimageCapture, error?: unknown): void {

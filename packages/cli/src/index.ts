@@ -17,7 +17,7 @@ import { escalateCommand, escalationsCommand } from "./commands/escalate.ts";
 import { benchCommand } from "./commands/bench.ts";
 import { verifyCommand } from "./commands/verify.ts";
 import { loadWorkspaceConfig, ledgerUrlFromConfig } from "./config.ts";
-import { SDK_VERSION } from "@latticeag/vekrevert-core";
+import { CLI_VERSION } from "./version.ts";
 
 const COMMANDS = [
   "init", "doctor", "classify", "plan", "execute", "undo", "verify",
@@ -46,7 +46,7 @@ const USAGE_BY_COMMAND: Record<string, string> = {
   verify: "usage: vekrevert verify <plan-id> [--json]",
   receipts: "usage: vekrevert receipts [effect-id] [--json]",
   registry: "usage: vekrevert registry <list|match> [--json]",
-  register: "usage: vekrevert register <manifest> [--dry-run]",
+  register: "usage: vekrevert register <manifest> [--dry-run] [--sign] [--force] [--keygen]",
   status: "usage: vekrevert status [saga-id]",
   probe: "usage: vekrevert probe <effect-id>",
   replay: "usage: vekrevert replay <session-id>",
@@ -62,7 +62,7 @@ export async function runCli(argv: string[]): Promise<number> {
     return cmd ? 0 : 2;
   }
   if (cmd === "-v" || cmd === "--version" || cmd === "version") {
-    process.stdout.write(`${SDK_VERSION}\n`);
+    process.stdout.write(`${CLI_VERSION}\n`);
     return 0;
   }
   if (argv.includes("-h") || argv.includes("--help")) {
@@ -76,7 +76,8 @@ export async function runCli(argv: string[]): Promise<number> {
 
   if (cmd === "register") {
     const dry = argv.includes("--dry-run");
-    if (dry) return registerCommand(argv.slice(1));
+    const keygen = argv.includes("--keygen");
+    if (dry || keygen) return registerCommand(argv.slice(1));
     const cfg = loadWorkspaceConfig();
     const ledgerUrl = ledgerUrlFromConfig(cfg);
     const ledger = await openLedger(ledgerUrl);
