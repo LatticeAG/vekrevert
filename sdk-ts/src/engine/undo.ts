@@ -14,6 +14,7 @@ import {
 } from "@latticeag/vekrevert-core";
 import { lowerSteps } from "@latticeag/vekrevert-compensators";
 import { draftCompileVerify } from "../verify/pipeline.ts";
+import { draftedActionAllowed } from "../verify/drafted.ts";
 import { newPlanId } from "../ulid.ts";
 import { appendChained, projectionToReceipt, type EffectHost } from "../effect.ts";
 import type { EffectProjection, Ledger } from "../ledger/types.ts";
@@ -152,6 +153,9 @@ async function compileFor(row: EffectProjection, receipt: EffectReceipt, opts: U
   }
   if (!opts.allowDrafted) return { error_code: "VR3001", detail: "no compensator match" };
   if (receipt.tier === "T4") return { error_code: "VR4005", detail: "drafted compensations are never used for T4" };
+  if (!draftedActionAllowed(receipt.action, opts.host.config)) {
+    return { error_code: "VR4005", detail: "drafted_not_allowed" };
+  }
   const piped = await draftCompileVerify(receipt, {
     plan_id: newPlanId(),
     now: opts.now,

@@ -11,6 +11,7 @@ import {
   type ExecuteResult,
   type JsonValue,
   type Postcondition,
+  type VerificationMode,
   type VRCode,
 } from "@latticeag/vekrevert-core";
 import { appendChained, projectionToReceipt, type EffectHost } from "../effect.ts";
@@ -40,6 +41,9 @@ import {
 } from "./lease.ts";
 import { probeEffect, type ProbeOpts } from "./probe.ts";
 import { executeStep, type StepContext, type StepDbHandle, type StepResult } from "./step.ts";
+import { executeGateRejection } from "../verify/verifier.ts";
+import { resolveVerificationPolicy } from "../verify/policy.ts";
+import { resolveCoordinatorUrl, submitConflict } from "../coordinate/client.ts";
 
 export type { CompensationContext };
 export { getAls as getCompensationContext, runAls as runWithCompensationContext };
@@ -69,6 +73,7 @@ export interface ExecutePlanOpts {
   heldLeases?: HeldLeases;
   skipAcquire?: boolean;
   signature?: StepContext["signature"];
+  verificationMode?: VerificationMode;
 }
 
 function vrCode(err: unknown): VRCode | undefined {
@@ -198,21 +203,32 @@ export async function executePlan(plan: CompensationPlan, opts: ExecutePlanOpts)
     });
     throw new VekRevertError("VR4005", "drafted_not_allowed");
   }
-  if (plan.origin === "drafted") {
-    const rec = plan.verification;
-    const pass = rec && rec.plan_hash === plan.plan_hash && rec.verdict === "PASS" && rec.scope_ok && !rec.overreach;
-    if (!pass) {
-      await raise({
-        ledger: opts.ledger,
-        host: opts.host,
-        saga_id: plan.saga_id,
-        effect_id: plan.effect_id,
-        reason_code: "verifier_rejected",
-        approval_binds_to: plan.plan_hash,
-      });
-      const code = rec?.overreach ? "VR4004" : rec?.verdict === "FAIL" ? "VR4001" : rec?.verdict === "UNSURE" ? "VR4002" : "VR4002";
-      throw new VekRevertError(code, rec?.reasons.join("; ") || "drafted plan requires PASS && scope_ok && !overreach");
+  const mode =
+    opts.verificationMode ?? resolveVerificationPolicy(opts.host.config).mode;
+  const gate = executeGateRejection(plan, mode);
+  if (gate) {
+    await raise({
+      ledger: opts.ledger,
+      host: opts.host,
+      saga_id: plan.saga_id,
+      effect_id: plan.effect_id,
+      reason_code: "verifier_rejected",
+      approval_binds_to: plan.plan_hash,
+    });
+    if (mode === "enforce") {
+      throw new VekRevertError(gate.error_code, gate.detail);
     }
+    return {
+      plan_id: plan.plan_id,
+      plan_hash: plan.plan_hash,
+      ok: false,
+      postconditions_ok: false,
+      attempt_ids: [],
+      duration_ms: Date.now() - started,
+      error_code: gate.error_code,
+      reversal_completeness: plan.reversal_completeness,
+      leak: plan.leak,
+    };
   }
 
   const receipt = await loadReceipt(opts.ledger, plan.effect_id);
@@ -320,6 +336,8 @@ export async function executePlan(plan: CompensationPlan, opts: ExecutePlanOpts)
     };
   }
 
+  const coordUrl = resolveCoordinatorUrl(opts.host.config.coordinatorUrl);
+
   const signature =
     opts.signature ??
     opts.registry?.match(receipt.action, receipt.args_observed, receipt.result_observed).matched ??
@@ -336,6 +354,34 @@ export async function executePlan(plan: CompensationPlan, opts: ExecutePlanOpts)
   }
 
   try {
+    if (coordUrl && keys.length && held) {
+      for (const key of keys) {
+        const verdict = await submitConflict(
+          coordUrl,
+          {
+            resource_key: key,
+            holder: held.holder,
+            fence: held.fences.get(key) ?? 0,
+            saga_id: plan.saga_id,
+            plan_hash: plan.plan_hash,
+            phase: "intent",
+          },
+          opts.fetch ?? opts.host.fetch,
+        );
+        if (verdict.verdict !== "winner") {
+          await raise({
+            ledger: opts.ledger,
+            host: opts.host,
+            saga_id: plan.saga_id,
+            effect_id: plan.effect_id,
+            reason_code: "compensation_failed",
+            approval_binds_to: plan.plan_hash,
+          });
+          throw new VekRevertError("VR5005", `conflict_${verdict.verdict}`);
+        }
+      }
+    }
+
     for (let i = 0; i < plan.steps.length; i++) {
       const step = plan.steps[i]!;
       const key = stepIdempotencyKey({
@@ -507,10 +553,30 @@ export async function executePlan(plan: CompensationPlan, opts: ExecutePlanOpts)
         reversal_completeness: plan.reversal_completeness,
         leak: plan.leak,
         duration_ms: Date.now() - started,
+        origin: plan.origin,
+        fencing_token: held
+          ? { holder: held.holder, fences: Object.fromEntries(held.fences) }
+          : undefined,
       } as unknown as JsonValue,
       opts.host,
       plan.effect_id,
     );
+
+    const firstKey = keys[0];
+    if (coordUrl && firstKey && held) {
+      await submitConflict(
+        coordUrl,
+        {
+          resource_key: firstKey,
+          holder: held.holder,
+          fence: held.fences.get(firstKey) ?? 0,
+          saga_id: plan.saga_id,
+          plan_hash: plan.plan_hash,
+          commit: true,
+        },
+        opts.fetch ?? opts.host.fetch,
+      ).catch(() => undefined);
+    }
 
     return {
       plan_id: plan.plan_id,
@@ -524,6 +590,34 @@ export async function executePlan(plan: CompensationPlan, opts: ExecutePlanOpts)
     };
   } catch (err) {
     const ve = asVr(err);
+    if (ve.code === "VR5006") {
+      const coordUrl = resolveCoordinatorUrl(opts.host.config.coordinatorUrl);
+      const firstKey = keys[0];
+      if (coordUrl && firstKey && held) {
+        const verdict = await submitConflict(
+          coordUrl,
+          {
+            resource_key: firstKey,
+            holder: held.holder,
+            fence: held.fences.get(firstKey) ?? 0,
+            saga_id: plan.saga_id,
+            plan_hash: plan.plan_hash,
+            error_code: "VR5006",
+          },
+          opts.fetch ?? opts.host.fetch,
+        ).catch(() => undefined);
+        if (verdict?.verdict === "loser") {
+          await raise({
+            ledger: opts.ledger,
+            host: opts.host,
+            saga_id: plan.saga_id,
+            effect_id: plan.effect_id,
+            reason_code: "compensation_failed",
+            approval_binds_to: plan.plan_hash,
+          }).catch(() => undefined);
+        }
+      }
+    }
     if (ve.code === "VR5002") {
       await appendChained(
         opts.ledger,

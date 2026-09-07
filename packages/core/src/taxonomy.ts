@@ -68,6 +68,61 @@ function str(v: JsonValue | undefined): string | undefined {
   return typeof v === "string" ? v : undefined;
 }
 
+/** Hermes / agent-runtime tools that are fs or read-only HTTP, not unknown MCP. */
+const AGENT_FS_WRITE = new Set([
+  "write_file",
+  "writefile",
+  "str_replace",
+  "patch",
+  "edit",
+  "mcp__filesystem__write_file",
+  "mcp__filesystem__edit_file",
+]);
+const AGENT_FS_READ = new Set([
+  "read_file",
+  "readfile",
+  "search_files",
+  "list_directory",
+  "mcp__filesystem__read_text_file",
+  "mcp__filesystem__list_directory",
+]);
+const AGENT_HTTP_READ = new Set(["web_search", "websearch", "web_extract", "webextract"]);
+
+export function rewriteAgentTool(
+  action: ActionRef,
+  args: JsonValue,
+): { action: ActionRef; args: JsonValue } | undefined {
+  if (action.kind !== "mcp_tool" && action.kind !== "sdk_fn") return undefined;
+  const rec = asRecord(args);
+  const tool = (str(rec.tool) ?? action.name.split(".").pop() ?? action.name).toLowerCase();
+  const path = str(rec.path) ?? str(rec.file_path) ?? str(rec.target) ?? "/eval-sandbox/file";
+  if (AGENT_FS_WRITE.has(tool)) {
+    return {
+      action: { kind: "fs", name: `fs.write.${path}`, target: path, locality: "internal" },
+      args: { ...rec, op: "write", path, realpath: path },
+    };
+  }
+  if (AGENT_FS_READ.has(tool)) {
+    const op = tool.includes("search") || tool.includes("list") ? "readdir" : "stat";
+    return {
+      action: { kind: "fs", name: `fs.${op}.${path}`, target: path, locality: "internal" },
+      args: { ...rec, op, path, realpath: path },
+    };
+  }
+  if (AGENT_HTTP_READ.has(tool)) {
+    return {
+      action: {
+        kind: "http",
+        name: "http.GET.search.invalid/search",
+        target: "search.invalid",
+        locality: "external",
+      },
+      args: { method: "GET", url: str(rec.url) ?? "https://search.invalid/search" },
+    };
+  }
+  return undefined;
+}
+
 function header(headers: Record<string, string> | undefined, name: string): string | undefined {
   if (!headers) return undefined;
   const want = name.toLowerCase();
@@ -149,6 +204,8 @@ export function classifyStructural(
   args: JsonValue,
   ctx: ClassifyContext = {},
 ): { tier: Tier; reasons: string[]; in_doubt: boolean; locality: ActionRef["locality"] } {
+  const aliased = rewriteAgentTool(action, args);
+  if (aliased) return classifyStructural(aliased.action, aliased.args, ctx);
   const rec = asRecord(args);
   const loc = classifyLocality(action.target ?? str(rec.url) ?? str(rec.path), ctx.internalHosts);
   const reasons: string[] = [];

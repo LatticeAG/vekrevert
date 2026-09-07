@@ -30,6 +30,7 @@ export async function verifyCommand(argv: string[], ctx?: { ledger?: Ledger; vr?
       allowDrafted: cfg.allowDrafted,
       models: cfg.models,
       policy: cfg.policy,
+      verification: cfg.verification,
     });
   if (ctx?.ledger) vr.ledgerHandle = ctx.ledger;
   else await vr.openLedgerHandle();

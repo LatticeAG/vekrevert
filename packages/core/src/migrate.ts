@@ -41,3 +41,10 @@ export function loadInitSql(dialect: SqlDialectName): string {
   const raw = readFileSync(join(here, "../migrations/001_init.sql"), "utf8");
   return templateMigration(raw, dialect);
 }
+
+/** Coordinator process schema. Not applied to receipt ledgers. */
+export function loadCoordinatorSql(dialect: SqlDialectName = "sqlite"): string {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const raw = readFileSync(join(here, "../migrations/002_coordinator.sql"), "utf8");
+  return templateMigration(raw, dialect);
+}

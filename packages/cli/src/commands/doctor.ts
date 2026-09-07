@@ -1,11 +1,11 @@
-/** vekrevert doctor [--json] - twelve checks from SPEC 11.6. Never prints secret values. */
+/** vekrevert doctor [--json] - workspace checks. Never prints secret values. */
 
 import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, unlinkSync, writeFileSync, writeSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { createRequire } from "node:module";
 import { verifyChain, SDK_VERSION } from "@latticeag/vekrevert-core";
-import { openLedger } from "@latticeag/vekrevert";
+import { openLedger, resolveVerificationPolicy, STRUCTURAL_VERIFIER_MODEL } from "@latticeag/vekrevert";
 import { CompensatorRegistry } from "@latticeag/vekrevert/registry";
 import { builtins } from "@latticeag/vekrevert-compensators";
 import { loadWorkspaceConfig } from "../config.ts";
@@ -248,6 +248,7 @@ export async function doctorCommand(argv: string[]): Promise<number> {
   }
 
   // 9. Model roles: null = disabled, not broken. LexShield probe is warn-on-unreachable.
+  //    Also reports verifier gate mode + model reachability (v0.4 gate).
   {
     const models = cfg.models ?? { classifier: null, drafter: null, verifier: null };
     const roles = ["classifier", "drafter", "verifier"] as const;
@@ -362,6 +363,65 @@ export async function doctorCommand(argv: string[]): Promise<number> {
     }
   } catch (err) {
     checks.push({ n: 12, name: "clock", status: "fail", detail: err instanceof Error ? err.message : String(err) });
+  }
+
+  // 13. Verifier gate mode + model reachability.
+  {
+    const policy = resolveVerificationPolicy(cfg);
+    const model = policy.model ?? STRUCTURAL_VERIFIER_MODEL;
+    const baseUrl = process.env.VEKREVERT_MODEL_BASE_URL;
+    const keyFlag = `VEKREVERT_MODEL_API_KEY ${envFlag("VEKREVERT_MODEL_API_KEY")}`;
+    if (!baseUrl) {
+      checks.push({
+        n: 13,
+        name: "verification",
+        status: "pass",
+        detail: `mode ${policy.mode}; model ${model}; remote unset (structural fallback); ${keyFlag}`,
+      });
+    } else {
+      const headers = bearerHeaders("VEKREVERT_MODEL_API_KEY");
+      const health = await probeHttp(joinUrl(baseUrl, "/health"), { headers });
+      checks.push({
+        n: 13,
+        name: "verification",
+        status: health.ok ? "pass" : "warn",
+        detail: `mode ${policy.mode}; model ${model}; remote ${health.ok ? "reachable" : "unreachable"}; ${keyFlag}`,
+      });
+    }
+  }
+
+  // 14. Drafted policy (allowlist + gate coupling).
+  {
+    const allow = cfg.drafted?.allow ?? [];
+    const requireGate = cfg.drafted?.requireGate !== false;
+    const enabled = cfg.allowDrafted === true;
+    checks.push({
+      n: 14,
+      name: "drafted",
+      status: "pass",
+      detail: `allowDrafted=${enabled} allow=[${allow.join(",") || (enabled ? "all" : "none")}] requireGate=${requireGate}`,
+    });
+  }
+
+  // 15. Coordinator reachability. Unset is skip (byte-identical local leases).
+  {
+    const url = process.env.VEKREVERT_COORDINATOR_URL ?? cfg.coordinatorUrl;
+    if (!url) {
+      checks.push({
+        n: 15,
+        name: "coordinator",
+        status: "skip",
+        detail: `not configured; VEKREVERT_COORDINATOR_URL ${envFlag("VEKREVERT_COORDINATOR_URL")}`,
+      });
+    } else {
+      const probe = await probeHealthOrBase(url, bearerHeaders("VEKREVERT_API_KEY"));
+      checks.push({
+        n: 15,
+        name: "coordinator",
+        status: probe.ok ? "pass" : "warn",
+        detail: `${url} ${probe.ok ? "reachable" : "unreachable"}; VEKREVERT_COORDINATOR_URL ${envFlag("VEKREVERT_COORDINATOR_URL")}`,
+      });
+    }
   }
 
   if (json) {

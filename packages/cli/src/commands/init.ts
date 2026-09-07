@@ -42,6 +42,8 @@ export async function initCommand(argv: string[]): Promise<number> {
     internalHosts: [] as string[],
     policy: { blockT4: false, requireApprovalFor: ["T4"] },
     models: { classifier: null, drafter: null, verifier: null },
+    verification: { mode: "audit" as const },
+    drafted: { allow: [] as string[], requireGate: true },
     redact: {
       paths: ["$.password", "$.token", "$.authorization", "$.ssn"],
       patterns: ["sk_live_[A-Za-z0-9]+"],

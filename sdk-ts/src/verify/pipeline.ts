@@ -72,7 +72,8 @@ export async function draftCompileVerify(
     signature,
   });
   compiled.verification = verification;
-  if (!verificationPassesGate(verification)) {
+  const mode = opts.verify?.mode ?? "audit";
+  if (!verificationPassesGate(verification) && mode === "enforce") {
     return recordToRejection(verification);
   }
   return { ok: true, plan: compiled, verification };

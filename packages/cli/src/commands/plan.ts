@@ -16,7 +16,7 @@ import {
   type EffectReceipt,
   type JsonValue,
 } from "@latticeag/vekrevert-core";
-import { draftCompileVerify, workspaceAllowsDrafted } from "@latticeag/vekrevert";
+import { draftCompileVerify, workspaceAllowsDrafted, draftedActionAllowed } from "@latticeag/vekrevert";
 import { CompensatorRegistry } from "@latticeag/vekrevert/registry";
 import type { Ledger } from "@latticeag/vekrevert";
 import { loadWorkspaceConfig } from "../config.ts";
@@ -86,6 +86,10 @@ export async function planCommand(argv: string[], ctx?: { ledger?: Ledger }): Pr
   if (!signature && allowDrafted) {
     if (receipt.tier === "T4") {
       process.stderr.write("VR4005 drafted compensations are never used for T4\n");
+      return 4;
+    }
+    if (!draftedActionAllowed(receipt.action, cfg)) {
+      process.stderr.write("VR4005 drafted_not_allowed\n");
       return 4;
     }
     try {

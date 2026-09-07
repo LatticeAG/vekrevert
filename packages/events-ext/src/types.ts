@@ -96,6 +96,8 @@ export interface VekRevertEventPayload {
     reversal_completeness: string;
     leak: string;
     duration_ms: number;
+    origin?: string;
+    fencing_token?: { holder: string; fences: Record<string, number> };
   };
   compensation_failed: {
     error_code: string;

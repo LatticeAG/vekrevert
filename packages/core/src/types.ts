@@ -291,6 +291,24 @@ export interface Postcondition {
   required: boolean;
 }
 
+export type VerificationMode = "off" | "audit" | "enforce";
+
+export type VerificationFallbackReason = "model_unreachable" | "budget_exhausted" | "timeout";
+
+export interface VerificationPolicy {
+  mode?: VerificationMode;
+  model?: string;
+  budgetPerSaga?: number;
+  cacheTtl?: number;
+}
+
+export interface DraftedPolicy {
+  /** Glob patterns against `action.name` (e.g. `fs.*`, `message.*`). */
+  allow?: string[];
+  /** Drafted plans still require a gate record. Default true. */
+  requireGate?: boolean;
+}
+
 export interface VerificationRecord {
   verdict: "PASS" | "FAIL" | "UNSURE";
   scope_ok: boolean;
@@ -304,6 +322,8 @@ export interface VerificationRecord {
   plan_hash: string;
   latency_ms: number;
   verified_at: string;
+  /** Additive: why this record used the structural fallback instead of the configured model. */
+  fallback_reason?: VerificationFallbackReason;
 }
 
 export interface Saga {
@@ -507,6 +527,8 @@ export interface ReceiptsReport {
   chain_ok?: boolean;
   broken_at?: number;
   reason?: string;
+  /** Additive: origin of each planned/executed compensation, for forensics. */
+  origins?: Array<{ type: string; origin: string; plan_hash?: string; effect_id?: string }>;
 }
 
 export interface Escalation {
@@ -555,6 +577,12 @@ export interface VekRevertConfig {
     drafter?: { model: string; timeoutMs: number } | null;
     verifier?: { model: string; timeoutMs: number } | null;
   };
+  /** Gate policy. Default mode is `audit` (record, never block). Env: VEKREVERT_VERIFICATION_MODE. */
+  verification?: VerificationPolicy;
+  /** Per-action drafted allowlist. Outside the list still hits VR4005. */
+  drafted?: DraftedPolicy;
+  /** When set, multi-ledger sagas fence through the coordinator. Unset = current lease behavior. */
+  coordinatorUrl?: string;
   escalation?: {
     vekinbox?: {
       baseUrl: string;
