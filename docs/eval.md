@@ -4,8 +4,8 @@ This document closes the “fixtures only” gap. Numbers below were produced on
 2026-09-07 by `pnpm exec tsx bench/eval_real_traces.ts` against frozen vectors
 in `tests/fixtures/real_traces/frozen.json`. Reproduce with that command or
 `vekrevert bench real-traces`. CI runs the same harness in
-`tests/eval_real_traces.test.ts` (this machine: 196 ms for the frozen set,
-full `pnpm test` 23 s).
+`tests/eval_real_traces.test.ts` (frozen set is well under a second here,
+full `pnpm test` tens of seconds).
 
 This is **not** a claim that VekRevert reversed the original Hermes sessions
 on disk. Frozen traces rewrite paths to `/eval-sandbox`, redact file contents
@@ -20,7 +20,7 @@ VersaTitan trajectories were not present on the eval host.
 | Reversal success | **100.0%** (20/20 fs write+patch sandboxes restored by `undo`) |
 | False-escalation | **0.0%** (0/40 steps labelled `should_escalate=false`) |
 | Receipt-chain integrity | **100.0%** |
-| Added latency per tool call | **p50 0.023 ms / p99 1.287 ms** (classify only, memory ledger) |
+| Added latency per tool call | **p50 ~0.03 ms / p99 ~1 ms** (classify only, memory ledger; host-dependent — rerun the harness) |
 
 Synthetic control (existing 200-case red-team corpus, `bench/verifier_redteam/`):
 compile-rejection recall **85.0%**, verifier false-PASS **0**. Classify fixtures
