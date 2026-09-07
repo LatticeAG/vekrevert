@@ -21,6 +21,8 @@ pip install -e sdk-python
 
 Drafted compensations are off by default (`allowDrafted: false`). A workspace may opt in with `drafted.allow` (globs such as `fs.*` / `message.*`); anything outside that list is still `VR4005`. Drafted plans always need a gate record. In `audit` a failing gate escalates instead of executing; `enforce` returns the existing `PlanRejection` shape via `recordToRejection`. The verifier gate defaults to `audit` (records verdicts, never blocks registered/builtin execute). This is not a hosted model SLA: when the model is unreachable the structural verifier decides and caps the verdict at `uncertain`. Cross-ledger fencing is opt-in via `coordinatorUrl` / `VEKREVERT_COORDINATOR_URL` and `vekrevert coordinate`. Unset, OSS still coordinates only within one ledger. The coordinator does not lock a cluster or merge SQLite chains.
 
+See `docs/eval.md` for measured numbers on 50 frozen Hermes-shaped traces (reversal, false-escalation, chain integrity, classify latency) plus the 200-case red-team control. Reproduce with `pnpm exec tsx bench/eval_real_traces.ts`. That eval is not a replay of the original machines: paths and contents are redacted.
+
 ## License
 
 MIT

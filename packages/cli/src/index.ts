@@ -53,7 +53,7 @@ const USAGE_BY_COMMAND: Record<string, string> = {
   replay: "usage: vekrevert replay <session-id>",
   escalate: "usage: vekrevert escalate <effect-id> [--reason <text>]",
   escalations: "usage: vekrevert escalations [--json]",
-  bench: "usage: vekrevert bench <preflight|verifier> [--corpus <dir>]",
+  bench: "usage: vekrevert bench <classify|verifier|roundtrip|preflight|real-traces> [--corpus <dir>]",
   coordinate: "usage: vekrevert coordinate [--listen host:port] [--db path]",
 };
 

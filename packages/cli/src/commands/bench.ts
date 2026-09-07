@@ -87,7 +87,13 @@ export async function benchCommand(argv: string[]): Promise<number> {
   if (sub === "preflight") {
     return runVitest(["bench/preflight.bench.ts"]);
   }
-  process.stderr.write("usage: vekrevert bench classify|verifier|roundtrip|preflight [--corpus <dir>]\n");
+  if (sub === "real-traces" || sub === "eval") {
+    const { evalRealTraces, formatEvalReport } = await import("../../../../bench/eval_real_traces.ts");
+    const report = await evalRealTraces();
+    process.stdout.write(formatEvalReport(report));
+    return 0;
+  }
+  process.stderr.write("usage: vekrevert bench classify|verifier|roundtrip|preflight|real-traces [--corpus <dir>]\n");
   return 2;
 }
 

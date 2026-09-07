@@ -123,8 +123,62 @@ def classify_locality(target: str | None, internal_hosts: list[str] | None = Non
     return {"locality": "external", "tier": "T1", "reasons": ["locality_external"]}
 
 
+AGENT_FS_WRITE = {
+    "write_file",
+    "writefile",
+    "str_replace",
+    "patch",
+    "edit",
+    "mcp__filesystem__write_file",
+    "mcp__filesystem__edit_file",
+}
+AGENT_FS_READ = {
+    "read_file",
+    "readfile",
+    "search_files",
+    "list_directory",
+    "mcp__filesystem__read_text_file",
+    "mcp__filesystem__list_directory",
+}
+AGENT_HTTP_READ = {"web_search", "websearch", "web_extract", "webextract"}
+
+
+def rewrite_agent_tool(action: dict, args) -> dict | None:
+    kind = action.get("kind")
+    if kind not in ("mcp_tool", "sdk_fn"):
+        return None
+    rec = _as_record(args)
+    tool = (_str(rec.get("tool")) or (action.get("name") or "").split(".")[-1] or action.get("name") or "").lower()
+    path = _str(rec.get("path")) or _str(rec.get("file_path")) or _str(rec.get("target")) or "/eval-sandbox/file"
+    if tool in AGENT_FS_WRITE:
+        return {
+            "action": {"kind": "fs", "name": f"fs.write.{path}", "target": path, "locality": "internal"},
+            "args": {**rec, "op": "write", "path": path, "realpath": path},
+        }
+    if tool in AGENT_FS_READ:
+        op = "readdir" if ("search" in tool or "list" in tool) else "stat"
+        return {
+            "action": {"kind": "fs", "name": f"fs.{op}.{path}", "target": path, "locality": "internal"},
+            "args": {**rec, "op": op, "path": path, "realpath": path},
+        }
+    if tool in AGENT_HTTP_READ:
+        return {
+            "action": {
+                "kind": "http",
+                "name": "http.GET.search.invalid/search",
+                "target": "search.invalid",
+                "locality": "external",
+            },
+            "args": {"method": "GET", "url": _str(rec.get("url")) or "https://search.invalid/search"},
+        }
+    return None
+
+
 def classify_structural(action: dict, args, ctx: dict | None = None) -> dict:
     ctx = ctx or {}
+    aliased = rewrite_agent_tool(action, args)
+    if aliased:
+        return classify_structural(aliased["action"], aliased["args"], ctx)
     rec = _as_record(args)
     loc = classify_locality(action.get("target") or _str(rec.get("url")) or _str(rec.get("path")), ctx.get("internalHosts"))
     kind = action.get("kind")

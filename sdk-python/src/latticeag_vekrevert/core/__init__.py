@@ -9,7 +9,7 @@ from .chain import (
     verify_chain,
     seal_hash,
 )
-from .taxonomy import join_tier, classify_structural, classify_action, classify_locality
+from .taxonomy import join_tier, classify_structural, classify_action, classify_locality, rewrite_agent_tool
 from .plan import compile_plan, assert_provenance, assert_scope
 from .match import match_compensator, specificity_score
 from .resource import resource_keys, normalize_http_url
@@ -33,6 +33,7 @@ __all__ = [
     "classify_structural",
     "classify_action",
     "classify_locality",
+    "rewrite_agent_tool",
     "compile_plan",
     "assert_provenance",
     "assert_scope",

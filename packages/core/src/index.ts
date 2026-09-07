@@ -86,6 +86,7 @@ export {
   joinTier,
   detectScopeViolation,
   classifyAction,
+  rewriteAgentTool,
 } from "./taxonomy.ts";
 export type { ClassifyContext } from "./taxonomy.ts";
 export { templateMigration, loadInitSql, loadCoordinatorSql } from "./migrate.ts";
