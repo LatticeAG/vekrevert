@@ -10,9 +10,15 @@ import {
   type EffectReceipt,
   type JsonValue,
   type PlanRejection,
+  type VerificationMode,
   type VerificationRecord,
 } from "@latticeag/vekrevert-core";
 import { draftedSignature } from "./drafter.ts";
+import {
+  cachedVerificationWithTtl,
+  takeVerificationBudget,
+  type ResolvedVerificationPolicy,
+} from "./policy.ts";
 
 export const DEFAULT_VERIFIER_MODEL = "grok-4-fast";
 export const STRUCTURAL_VERIFIER_MODEL = "vekrevert-verifier-structural";
@@ -30,6 +36,14 @@ export interface VerifyOpts {
   baseUrl?: string;
   cache?: Map<string, VerificationRecord>;
   signature?: ActionSignature;
+  /** Cache TTL in milliseconds. Omitted = no expiry (current default). */
+  cacheTtlMs?: number;
+  /** Max remote/model invocations per saga. Omitted = unlimited. */
+  budgetPerSaga?: number;
+  sagaId?: string;
+  budgetState?: Map<string, number>;
+  /** When `off`, skip remote/model completion and use structural only (not a fallback). */
+  mode?: ResolvedVerificationPolicy["mode"];
 }
 
 export interface FourAnswers {
@@ -174,8 +188,8 @@ export async function verifyPlan(
   const started = Date.now();
   const now = opts.now ?? new Date();
   const cache = opts.cache ?? verificationCache;
-  const hit = cache.get(plan.plan_hash);
-  if (hit && hit.plan_hash === plan.plan_hash) return hit;
+  const hit = cachedVerificationWithTtl(cache, plan.plan_hash, now, opts.cacheTtlMs);
+  if (hit) return hit;
 
   if (plan.origin === "builtin" || plan.origin === "registered") {
     const rec = skipVerifierRecord(plan, now);
@@ -237,8 +251,39 @@ export async function verifyPlan(
   let modelAnswers: Partial<FourAnswers> | undefined;
   let model = STRUCTURAL_VERIFIER_MODEL;
   const apiKey = opts.apiKey ?? process.env.VEKREVERT_MODEL_API_KEY;
+  const wantRemote = opts.mode !== "off" && Boolean(opts.complete || (remoteModel && apiKey));
+  const sagaKey = opts.sagaId ?? plan.saga_id;
+  const budgetOk = !wantRemote || takeVerificationBudget(sagaKey, opts.budgetPerSaga, opts.budgetState);
 
-  if (opts.complete) {
+  if (wantRemote && !budgetOk) {
+    const rec = structuralFallbackRecord(
+      plan,
+      structural,
+      "budget_exhausted",
+      opts.drafter_model,
+      prompt_hash,
+      started,
+      now,
+    );
+    cache.set(plan.plan_hash, rec);
+    return rec;
+  }
+
+  if (opts.mode !== "off" && remoteModel && !opts.complete && !apiKey) {
+    const rec = structuralFallbackRecord(
+      plan,
+      structural,
+      "model_unreachable",
+      opts.drafter_model,
+      prompt_hash,
+      started,
+      now,
+    );
+    cache.set(plan.plan_hash, rec);
+    return rec;
+  }
+
+  if (opts.complete && budgetOk && opts.mode !== "off") {
     model = remoteModel || STRUCTURAL_VERIFIER_MODEL;
     try {
       modelAnswers = await opts.complete(input);
@@ -247,7 +292,7 @@ export async function verifyPlan(
       cache.set(plan.plan_hash, rec);
       return rec;
     }
-  } else if (remoteModel && apiKey) {
+  } else if (remoteModel && apiKey && budgetOk && opts.mode !== "off") {
     model = remoteModel;
     try {
       modelAnswers = await callVerifierModel(input, prompt, {
@@ -301,6 +346,39 @@ function worseSufficiency(a: FourAnswers["sufficiency"], b: FourAnswers["suffici
   return rank[a] <= rank[b] ? a : b;
 }
 
+function capFallbackVerdict(structural: FourAnswers): VerificationRecord["verdict"] {
+  const raw = verdictFromAnswers(structural);
+  if (raw === "FAIL") return "FAIL";
+  return "UNSURE";
+}
+
+function structuralFallbackRecord(
+  plan: CompensationPlan,
+  structural: FourAnswers,
+  reason: NonNullable<VerificationRecord["fallback_reason"]>,
+  drafter_model: string | undefined,
+  prompt_hash: string,
+  started: number,
+  now: Date,
+  extraReasons: string[] = [],
+): VerificationRecord {
+  return {
+    verdict: capFallbackVerdict(structural),
+    scope_ok: structural.scope_ok,
+    sufficiency: structural.sufficiency === "full" ? "partial" : structural.sufficiency,
+    overreach: structural.overreach,
+    order_ok: structural.order_ok,
+    reasons: [...structural.reasons, `verifier_fallback: ${reason}`, ...extraReasons],
+    model: STRUCTURAL_VERIFIER_MODEL,
+    drafter_model,
+    prompt_hash,
+    plan_hash: plan.plan_hash,
+    latency_ms: Date.now() - started,
+    verified_at: now.toISOString(),
+    fallback_reason: reason,
+  };
+}
+
 function timeoutOrErrorRecord(
   plan: CompensationPlan,
   structural: FourAnswers,
@@ -312,20 +390,16 @@ function timeoutOrErrorRecord(
 ): VerificationRecord {
   const msg = err instanceof Error ? err.message : String(err);
   const timeout = /timeout|abort/i.test(msg);
-  return {
-    verdict: "UNSURE",
-    scope_ok: structural.scope_ok,
-    sufficiency: structural.sufficiency === "full" ? "partial" : structural.sufficiency,
-    overreach: structural.overreach,
-    order_ok: structural.order_ok,
-    reasons: [...structural.reasons, timeout ? "verifier_timeout" : `verifier_error: ${msg}`],
-    model: timeout ? "timeout" : "error",
+  return structuralFallbackRecord(
+    plan,
+    structural,
+    timeout ? "timeout" : "model_unreachable",
     drafter_model,
     prompt_hash,
-    plan_hash: plan.plan_hash,
-    latency_ms: Date.now() - started,
-    verified_at: now.toISOString(),
-  };
+    started,
+    now,
+    [timeout ? "verifier_timeout" : `verifier_error: ${msg}`],
+  );
 }
 
 export function verifierPrompt(input: VerifierInput): string {
@@ -799,7 +873,11 @@ export function recordToRejection(rec: VerificationRecord): PlanRejection {
   if (rec.verdict === "FAIL") {
     return { ok: false, error_code: "VR4001", stage: "compile", detail: rec.reasons.join("; ") || "verifier_fail" };
   }
-  if (rec.model === "timeout" || rec.reasons.includes("verifier_timeout")) {
+  if (
+    rec.fallback_reason === "timeout" ||
+    rec.model === "timeout" ||
+    rec.reasons.includes("verifier_timeout")
+  ) {
     return { ok: false, error_code: "VR4003", stage: "compile", detail: "verifier_timeout" };
   }
   return { ok: false, error_code: "VR4002", stage: "compile", detail: rec.reasons.join("; ") || "verifier_unsure" };
@@ -807,4 +885,40 @@ export function recordToRejection(rec: VerificationRecord): PlanRejection {
 
 export function verificationPassesGate(rec: VerificationRecord): boolean {
   return rec.verdict === "PASS" && rec.scope_ok && !rec.overreach;
+}
+
+export function executeRequiresVerificationGate(
+  origin: CompensationPlan["origin"],
+  mode: VerificationMode,
+): boolean {
+  if (origin === "drafted") return true;
+  if (mode === "enforce" && origin === "registered") return true;
+  return false;
+}
+
+export function verificationRecordForExecute(plan: CompensationPlan): VerificationRecord | undefined {
+  if (plan.verification && plan.verification.plan_hash === plan.plan_hash) return plan.verification;
+  if (plan.origin === "builtin" || plan.origin === "registered") return skipVerifierRecord(plan);
+  return undefined;
+}
+
+/**
+ * Returns a PlanRejection when execute must not proceed. Uses recordToRejection
+ * (no new error type). Drafted always requires a passing gate; registered does
+ * in `enforce` mode. `audit` never blocks registered/builtin.
+ */
+export function executeGateRejection(
+  plan: CompensationPlan,
+  mode: VerificationMode,
+): PlanRejection | undefined {
+  if (!executeRequiresVerificationGate(plan.origin, mode)) return undefined;
+  const rec = verificationRecordForExecute(plan);
+  if (rec && verificationPassesGate(rec)) return undefined;
+  if (rec) return recordToRejection(rec);
+  return {
+    ok: false,
+    error_code: "VR4002",
+    stage: "compile",
+    detail: "missing verification record",
+  };
 }

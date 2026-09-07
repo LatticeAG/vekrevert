@@ -26,5 +26,12 @@
     "patterns": [
       "sk_live_[A-Za-z0-9]+"
     ]
+  },
+  "verification": {
+    "mode": "audit"
+  },
+  "drafted": {
+    "allow": [],
+    "requireGate": true
   }
 }

@@ -1,6 +1,6 @@
 [project]
 name = "latticeag-vekrevert"
-version = "0.3.0"
+version = "0.4.0"
 description = "VekRevert Python SDK - compensating transactions for agent side effects"
 readme = "README.md"
 license = { text = "MIT" }

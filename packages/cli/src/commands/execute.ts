@@ -3,6 +3,7 @@
 import { VekRevertError, type Actor } from "@latticeag/vekrevert-core";
 import { VekRevert } from "@latticeag/vekrevert";
 import type { Ledger } from "@latticeag/vekrevert";
+import { loadWorkspaceConfig, ledgerUrlFromConfig } from "../config.ts";
 
 export async function executeCommand(argv: string[], ctx?: { ledger?: Ledger; vr?: VekRevert }): Promise<number> {
   let planId: string | undefined;
@@ -25,10 +26,15 @@ export async function executeCommand(argv: string[], ctx?: { ledger?: Ledger; vr
     return 2;
   }
 
+  const cfg = loadWorkspaceConfig();
   const vr =
     ctx?.vr ??
     new VekRevert({
-      ledger: process.env.VEKREVERT_LEDGER ?? "sqlite:./.vekrevert/ledger.db",
+      ledger: process.env.VEKREVERT_LEDGER ?? ledgerUrlFromConfig(cfg),
+      allowDrafted: cfg.allowDrafted,
+      models: cfg.models,
+      policy: cfg.policy,
+      verification: cfg.verification,
     });
   if (ctx?.ledger) vr.ledgerHandle = ctx.ledger;
   else await vr.openLedgerHandle();

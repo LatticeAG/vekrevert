@@ -26,6 +26,7 @@ import {
   VekRevertError,
 } from "@latticeag/vekrevert-core";
 import { draftCompileVerify, workspaceAllowsDrafted } from "./verify/pipeline.ts";
+import { draftedActionAllowed } from "./verify/drafted.ts";
 import {
   cachedVerification,
   cacheVerification,
@@ -33,6 +34,7 @@ import {
   verificationPassesGate,
   verifyPlan,
 } from "./verify/verifier.ts";
+import { resolveVerificationPolicy } from "./verify/policy.ts";
 import { newPlanId } from "./ulid.ts";
 import { appendChained } from "./effect.ts";
 import { raise as raiseSink } from "./escalate/sink.ts";
@@ -102,8 +104,17 @@ export { redactArgs } from "./redact.ts";
 export { putPreimage } from "./preimage/store.ts";
 export { classifyModel, escalateOnly, classifierView } from "./classify/model.ts";
 export { draftCompensation, shapesFromReceipt, redactToShape, draftedSignature, heuristicDraft } from "./verify/drafter.ts";
-export { verifyPlan, evaluateFourQuestions, skipVerifierRecord, verificationPassesGate, cachedVerification } from "./verify/verifier.ts";
+export { verifyPlan, evaluateFourQuestions, skipVerifierRecord, verificationPassesGate, cachedVerification, recordToRejection, executeGateRejection, executeRequiresVerificationGate, STRUCTURAL_VERIFIER_MODEL, DEFAULT_VERIFIER_MODEL } from "./verify/verifier.ts";
 export { draftCompileVerify, workspaceAllowsDrafted, envAllowDrafted } from "./verify/pipeline.ts";
+export { draftedActionAllowed, actionMatchesDraftedAllow, globMatchAction, draftedRequiresGate } from "./verify/drafted.ts";
+export {
+  resolveVerificationPolicy,
+  envVerificationMode,
+  cachedVerificationWithTtl,
+  takeVerificationBudget,
+  getVerificationBudget,
+  DEFAULT_VERIFICATION_MODE,
+} from "./verify/policy.ts";
 
 export class VekRevert {
   readonly config: VekRevertConfig;
@@ -207,11 +218,22 @@ export class VekRevert {
       }).catch(() => undefined);
       return { ok: false, error_code: "VR4005", stage: "drafted", detail: "drafted compensations are never used for T4" };
     }
+    if (!draftedActionAllowed(receipt.action, this.config)) {
+      return { ok: false, error_code: "VR4005", stage: "drafted", detail: "drafted_not_allowed" };
+    }
     const planId = newPlanId();
+    const policy = resolveVerificationPolicy(this.config);
     const piped = await draftCompileVerify(receipt, {
       plan_id: planId,
       draft: { model: this.config.models?.drafter?.model, timeoutMs: this.config.models?.drafter?.timeoutMs },
-      verify: { model: this.config.models?.verifier?.model, timeoutMs: this.config.models?.verifier?.timeoutMs },
+      verify: {
+        model: this.config.models?.verifier?.model ?? policy.model,
+        timeoutMs: this.config.models?.verifier?.timeoutMs,
+        cacheTtlMs: policy.cacheTtlMs,
+        budgetPerSaga: policy.budgetPerSaga,
+        sagaId: receipt.saga_id,
+        mode: policy.mode,
+      },
     });
     if (!("plan" in piped)) {
       const rej = piped;
@@ -243,6 +265,16 @@ export class VekRevert {
       return rej;
     }
     const ok = piped as { ok: true; plan: CompensationPlan; verification: VerificationRecord };
+    if (!verificationPassesGate(ok.verification)) {
+      await raiseSink({
+        ledger,
+        host: this,
+        saga_id: receipt.saga_id,
+        effect_id: receipt.effect_id,
+        reason_code: "verifier_rejected",
+        approval_binds_to: ok.plan.plan_hash,
+      }).catch(() => undefined);
+    }
     try {
       await ledger.putPlan(ok.plan);
       await appendChained(
@@ -286,10 +318,15 @@ export class VekRevert {
     const row = await ledger.getEffect(plan.effect_id);
     if (!row) throw new VekRevertError("VR3001", `unknown effect ${plan.effect_id}`);
     const receipt = projectionToReceipt(row);
+    const policy = resolveVerificationPolicy(this.config);
     const rec = await verifyPlan(plan, receipt, {
-      model: this.config.models?.verifier?.model,
+      model: this.config.models?.verifier?.model ?? policy.model,
       timeoutMs: this.config.models?.verifier?.timeoutMs,
       drafter_model: this.config.models?.drafter?.model ?? undefined,
+      cacheTtlMs: policy.cacheTtlMs,
+      budgetPerSaga: policy.budgetPerSaga,
+      sagaId: plan.saga_id,
+      mode: policy.mode,
     });
     plan.verification = rec;
     try {
@@ -335,6 +372,7 @@ export class VekRevert {
       heldLeases: opts?.heldLeases,
       skipAcquire: opts?.skipAcquire,
       now: opts?.now,
+      verificationMode: opts?.verificationMode ?? resolveVerificationPolicy(this.config).mode,
     });
   }
 
@@ -385,7 +423,19 @@ export class VekRevert {
   async receipts(sagaId: string, opts?: { verifyChain?: boolean }): Promise<ReceiptsReport> {
     const ledger = this.ledgerHandle ?? (await this.openLedgerHandle());
     const events = await ledger.readSaga(sagaId);
-    const report: ReceiptsReport = { saga_id: sagaId, events };
+    const origins: NonNullable<ReceiptsReport["origins"]> = [];
+    for (const ev of events) {
+      const payload = ev.payload as { origin?: unknown; plan_hash?: unknown } | undefined;
+      if (payload && typeof payload.origin === "string") {
+        origins.push({
+          type: ev.type,
+          origin: payload.origin,
+          plan_hash: typeof payload.plan_hash === "string" ? payload.plan_hash : undefined,
+          effect_id: ev.effect_id,
+        });
+      }
+    }
+    const report: ReceiptsReport = { saga_id: sagaId, events, ...(origins.length ? { origins } : {}) };
     if (opts?.verifyChain) {
       const result = verifyChain(events as unknown as ChainableEvent[]);
       if (result.ok) report.chain_ok = true;
