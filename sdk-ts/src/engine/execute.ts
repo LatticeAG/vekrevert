@@ -43,6 +43,7 @@ import { probeEffect, type ProbeOpts } from "./probe.ts";
 import { executeStep, type StepContext, type StepDbHandle, type StepResult } from "./step.ts";
 import { executeGateRejection } from "../verify/verifier.ts";
 import { resolveVerificationPolicy } from "../verify/policy.ts";
+import { resolveCoordinatorUrl, submitConflict } from "../coordinate/client.ts";
 
 export type { CompensationContext };
 export { getAls as getCompensationContext, runAls as runWithCompensationContext };
@@ -335,6 +336,8 @@ export async function executePlan(plan: CompensationPlan, opts: ExecutePlanOpts)
     };
   }
 
+  const coordUrl = resolveCoordinatorUrl(opts.host.config.coordinatorUrl);
+
   const signature =
     opts.signature ??
     opts.registry?.match(receipt.action, receipt.args_observed, receipt.result_observed).matched ??
@@ -351,6 +354,34 @@ export async function executePlan(plan: CompensationPlan, opts: ExecutePlanOpts)
   }
 
   try {
+    if (coordUrl && keys.length && held) {
+      for (const key of keys) {
+        const verdict = await submitConflict(
+          coordUrl,
+          {
+            resource_key: key,
+            holder: held.holder,
+            fence: held.fences.get(key) ?? 0,
+            saga_id: plan.saga_id,
+            plan_hash: plan.plan_hash,
+            phase: "intent",
+          },
+          opts.fetch ?? opts.host.fetch,
+        );
+        if (verdict.verdict !== "winner") {
+          await raise({
+            ledger: opts.ledger,
+            host: opts.host,
+            saga_id: plan.saga_id,
+            effect_id: plan.effect_id,
+            reason_code: "compensation_failed",
+            approval_binds_to: plan.plan_hash,
+          });
+          throw new VekRevertError("VR5005", `conflict_${verdict.verdict}`);
+        }
+      }
+    }
+
     for (let i = 0; i < plan.steps.length; i++) {
       const step = plan.steps[i]!;
       const key = stepIdempotencyKey({
@@ -531,6 +562,22 @@ export async function executePlan(plan: CompensationPlan, opts: ExecutePlanOpts)
       plan.effect_id,
     );
 
+    const firstKey = keys[0];
+    if (coordUrl && firstKey && held) {
+      await submitConflict(
+        coordUrl,
+        {
+          resource_key: firstKey,
+          holder: held.holder,
+          fence: held.fences.get(firstKey) ?? 0,
+          saga_id: plan.saga_id,
+          plan_hash: plan.plan_hash,
+          commit: true,
+        },
+        opts.fetch ?? opts.host.fetch,
+      ).catch(() => undefined);
+    }
+
     return {
       plan_id: plan.plan_id,
       plan_hash: plan.plan_hash,
@@ -543,6 +590,34 @@ export async function executePlan(plan: CompensationPlan, opts: ExecutePlanOpts)
     };
   } catch (err) {
     const ve = asVr(err);
+    if (ve.code === "VR5006") {
+      const coordUrl = resolveCoordinatorUrl(opts.host.config.coordinatorUrl);
+      const firstKey = keys[0];
+      if (coordUrl && firstKey && held) {
+        const verdict = await submitConflict(
+          coordUrl,
+          {
+            resource_key: firstKey,
+            holder: held.holder,
+            fence: held.fences.get(firstKey) ?? 0,
+            saga_id: plan.saga_id,
+            plan_hash: plan.plan_hash,
+            error_code: "VR5006",
+          },
+          opts.fetch ?? opts.host.fetch,
+        ).catch(() => undefined);
+        if (verdict?.verdict === "loser") {
+          await raise({
+            ledger: opts.ledger,
+            host: opts.host,
+            saga_id: plan.saga_id,
+            effect_id: plan.effect_id,
+            reason_code: "compensation_failed",
+            approval_binds_to: plan.plan_hash,
+          }).catch(() => undefined);
+        }
+      }
+    }
     if (ve.code === "VR5002") {
       await appendChained(
         opts.ledger,

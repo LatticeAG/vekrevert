@@ -35,6 +35,8 @@ export async function executeCommand(argv: string[], ctx?: { ledger?: Ledger; vr
       models: cfg.models,
       policy: cfg.policy,
       verification: cfg.verification,
+      drafted: cfg.drafted,
+      coordinatorUrl: cfg.coordinatorUrl,
     });
   if (ctx?.ledger) vr.ledgerHandle = ctx.ledger;
   else await vr.openLedgerHandle();

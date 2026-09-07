@@ -88,7 +88,7 @@ export {
   classifyAction,
 } from "./taxonomy.ts";
 export type { ClassifyContext } from "./taxonomy.ts";
-export { templateMigration, loadInitSql } from "./migrate.ts";
+export { templateMigration, loadInitSql, loadCoordinatorSql } from "./migrate.ts";
 export { resourceKeys, normalizeHttpUrl, actionName } from "./resource.ts";
 export { matchCompensator, specificityScore } from "./match.ts";
 export type { MatchableCompensator, MatchCompensatorResult } from "./match.ts";

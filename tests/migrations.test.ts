@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
-import { loadInitSql, VekRevertError } from "@latticeag/vekrevert-core";
+import { loadCoordinatorSql, loadInitSql, VekRevertError } from "@latticeag/vekrevert-core";
 import { openLedger, parseLedgerUrl } from "../sdk-ts/src/ledger/open.ts";
 import { LEDGER_TABLE_NAMES } from "../sdk-ts/src/ledger/types.ts";
 import { seedFixtureLedger } from "./fixtures/ledger/seed.ts";
@@ -30,6 +30,21 @@ describe("migrations", () => {
       .all() as Array<{ name: string }>;
     const have = names.map((r) => r.name);
     for (const t of LEDGER_TABLE_NAMES) expect(have).toContain(t);
+    db.close();
+  });
+
+  it("loadCoordinatorSql is separate from receipt ledgers", async () => {
+    const sql = loadCoordinatorSql("sqlite");
+    expect(sql).toContain("coord_leases");
+    expect(sql).toContain("coord_fence_hw");
+    expect(sql).toContain("coord_claims");
+    const dir = tmp();
+    const path = join(dir, "ledger.db");
+    const ledger = await openLedger(`sqlite:${path}`);
+    await ledger.close();
+    const db = new DatabaseSync(path);
+    const row = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='coord_leases'").get();
+    expect(row).toBeFalsy();
     db.close();
   });
 

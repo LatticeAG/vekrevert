@@ -28,6 +28,8 @@ export interface LedgerOpenOptions {
   anchorIntervalMs?: number;
   clock?: LedgerClock;
   fetch?: typeof fetch;
+  /** When set, lease RPCs go to the coordinator. Receipt storage stays on this ledger. */
+  coordinatorUrl?: string;
 }
 
 export interface AppendOpts {

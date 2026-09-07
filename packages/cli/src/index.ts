@@ -16,13 +16,14 @@ import { doctorCommand } from "./commands/doctor.ts";
 import { escalateCommand, escalationsCommand } from "./commands/escalate.ts";
 import { benchCommand } from "./commands/bench.ts";
 import { verifyCommand } from "./commands/verify.ts";
+import { coordinateCommand } from "./commands/coordinate.ts";
 import { loadWorkspaceConfig, ledgerUrlFromConfig } from "./config.ts";
 import { CLI_VERSION } from "./version.ts";
 
 const COMMANDS = [
   "init", "doctor", "classify", "plan", "execute", "undo", "verify",
   "receipts", "registry", "register", "status", "probe", "replay",
-  "escalate", "escalations", "bench",
+  "escalate", "escalations", "bench", "coordinate",
 ] as const;
 
 const USAGE = `vekrevert - compensating transactions for agent side effects
@@ -53,6 +54,7 @@ const USAGE_BY_COMMAND: Record<string, string> = {
   escalate: "usage: vekrevert escalate <effect-id> [--reason <text>]",
   escalations: "usage: vekrevert escalations [--json]",
   bench: "usage: vekrevert bench <preflight|verifier> [--corpus <dir>]",
+  coordinate: "usage: vekrevert coordinate [--listen host:port] [--db path]",
 };
 
 export async function runCli(argv: string[]): Promise<number> {
@@ -73,6 +75,7 @@ export async function runCli(argv: string[]): Promise<number> {
   if (cmd === "init") return initCommand(argv.slice(1));
   if (cmd === "doctor") return doctorCommand(argv.slice(1));
   if (cmd === "bench") return benchCommand(argv.slice(1));
+  if (cmd === "coordinate") return coordinateCommand(argv.slice(1));
 
   if (cmd === "register") {
     const dry = argv.includes("--dry-run");
@@ -116,7 +119,7 @@ export async function runCli(argv: string[]): Promise<number> {
     cmd === "escalations" ||
     cmd === "verify"
   ) {
-    const ledger = await openLedger(ledgerUrl);
+    const ledger = await openLedger(ledgerUrl, { coordinatorUrl: cfg.coordinatorUrl });
     const ctx = { ledger, stdout: process.stdout, stderr: process.stderr };
     try {
       if (cmd === "receipts") return await receiptsCommand(argv.slice(1), ctx);

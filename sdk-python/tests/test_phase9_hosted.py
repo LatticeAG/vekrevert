@@ -1,4 +1,4 @@
-from latticeag_vekrevert.ledger.http import client_chain_required, open_http_ledger
+from latticeag_vekrevert.ledger.http import client_chain_required, open_http_ledger, resolve_coordinator_url
 from latticeag_vekrevert.policy.lexshield import evaluate
 
 # Unreachable on purpose. Not a credential and not a live host.
@@ -38,3 +38,15 @@ def test_open_http_ledger_structured_refusal():
 
 def test_client_chain_required_documents_d7():
     assert client_chain_required() is True
+
+
+def test_resolve_coordinator_url_unset_is_none():
+    assert resolve_coordinator_url({}, env={}) is None
+
+
+def test_resolve_coordinator_url_env_and_config():
+    assert resolve_coordinator_url({"coordinatorUrl": "http://127.0.0.1:7465"}, env={}) == "http://127.0.0.1:7465"
+    assert (
+        resolve_coordinator_url({}, env={"VEKREVERT_COORDINATOR_URL": "http://127.0.0.1:9"})
+        == "http://127.0.0.1:9"
+    )

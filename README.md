@@ -10,7 +10,7 @@ Reversibility is a property of the action, not the agent. VekRevert records what
 
 ## Coordination boundary (OSS v1)
 
-Resource leases coordinate compensations **within one ledger**. Cross-ledger coordination (two processes, two SQLite files, one shared resource) is out of scope for OSS v1 and is a named hosted feature. Two processes with two separate SQLite ledgers sharing one external resource are protected only by idempotency keys and postcondition conflict detection (`VR5006`).
+Resource leases coordinate compensations **within one ledger**. Cross-ledger coordination (two processes, two SQLite files, one shared resource) is a named hosted feature: `vekrevert coordinate` plus `coordinatorUrl`. When `coordinatorUrl` is unset, behavior is byte-identical to in-ledger leases. The coordinator is **not** a global lock manager — leases are per-resource and short-TTL. See `docs/coordination.md`. Without a coordinator, two separate SQLite ledgers sharing one external resource are protected only by idempotency keys and postcondition conflict detection (`VR5006`).
 
 ## Install
 
@@ -19,7 +19,7 @@ pnpm install
 pip install -e sdk-python
 ```
 
-Drafted compensations are off by default (`allowDrafted: false`). A workspace may opt in with `drafted.allow` (globs such as `fs.*` / `message.*`); anything outside that list is still `VR4005`. Drafted plans always need a gate record. In `audit` a failing gate escalates instead of executing; `enforce` returns the existing `PlanRejection` shape via `recordToRejection`. The verifier gate defaults to `audit` (records verdicts, never blocks registered/builtin execute). This is not a hosted model SLA: when the model is unreachable the structural verifier decides and caps the verdict at `uncertain`. Cross-ledger coordination remains a hosted feature; OSS v1 still coordinates only within one ledger.
+Drafted compensations are off by default (`allowDrafted: false`). A workspace may opt in with `drafted.allow` (globs such as `fs.*` / `message.*`); anything outside that list is still `VR4005`. Drafted plans always need a gate record. In `audit` a failing gate escalates instead of executing; `enforce` returns the existing `PlanRejection` shape via `recordToRejection`. The verifier gate defaults to `audit` (records verdicts, never blocks registered/builtin execute). This is not a hosted model SLA: when the model is unreachable the structural verifier decides and caps the verdict at `uncertain`. Cross-ledger fencing is opt-in via `coordinatorUrl` / `VEKREVERT_COORDINATOR_URL` and `vekrevert coordinate`. Unset, OSS still coordinates only within one ledger. The coordinator does not lock a cluster or merge SQLite chains.
 
 ## License
 

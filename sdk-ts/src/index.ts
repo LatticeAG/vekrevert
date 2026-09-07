@@ -115,6 +115,19 @@ export {
   getVerificationBudget,
   DEFAULT_VERIFICATION_MODE,
 } from "./verify/policy.ts";
+export {
+  listenCoordinator,
+  startCoordinator,
+  createCoordinatorServer,
+  parseListen,
+} from "./coordinate/server.ts";
+export {
+  attachCoordinatorLeases,
+  withCoordinatorLeases,
+  resolveCoordinatorUrl,
+  submitConflict,
+} from "./coordinate/client.ts";
+export { CoordinatorStore } from "./coordinate/store.ts";
 
 export class VekRevert {
   readonly config: VekRevertConfig;
@@ -146,7 +159,11 @@ export class VekRevert {
   }
 
   async openLedgerHandle(): Promise<Ledger> {
-    this.ledgerHandle = await openLedger(this.config.ledger, { ...this.config.ledgerOpts, fetch: this.fetch });
+    this.ledgerHandle = await openLedger(this.config.ledger, {
+      ...this.config.ledgerOpts,
+      coordinatorUrl: this.config.coordinatorUrl,
+      fetch: this.fetch,
+    });
     return this.ledgerHandle;
   }
 

@@ -5,6 +5,7 @@ import { openSqliteLedger } from "./sqlite.ts";
 import { openPostgresLedger } from "./postgres.ts";
 import { openHttpLedger } from "./http.ts";
 import { rejectFsyncNever, type Ledger, type LedgerKind, type LedgerOpenOptions } from "./types.ts";
+import { attachCoordinatorLeases, resolveCoordinatorUrl } from "../coordinate/client.ts";
 
 export const DEFAULT_SQLITE_PATH = "./.vekrevert/ledger.db";
 
@@ -38,18 +39,31 @@ export async function openLedger(
   const parsed = parseLedgerUrl(raw);
   rejectFsyncNever(parsed.kind, opts.fsync);
 
+  let ledger: Ledger;
   switch (parsed.kind) {
     case "memory": {
       openMemoryLedger();
-      return createMemoryLedger(opts, [], {}, "memory");
+      ledger = createMemoryLedger(opts, [], {}, "memory");
+      break;
     }
     case "jsonl":
-      return openJsonlLedger(parsed.path!, opts);
+      ledger = await openJsonlLedger(parsed.path!, opts);
+      break;
     case "sqlite":
-      return openSqliteLedger(parsed.path!, opts);
+      ledger = openSqliteLedger(parsed.path!, opts);
+      break;
     case "postgres":
-      return openPostgresLedger(parsed.url!, opts);
+      ledger = await openPostgresLedger(parsed.url!, opts);
+      break;
     case "http":
-      return openHttpLedger(parsed.url!, opts);
+      ledger = openHttpLedger(parsed.url!, opts);
+      break;
+    default:
+      throw new Error(`unrecognized ledger kind: ${String((parsed as { kind: string }).kind)}`);
   }
+  const coordinatorUrl = resolveCoordinatorUrl(opts.coordinatorUrl);
+  if (coordinatorUrl && parsed.kind !== "http") {
+    return attachCoordinatorLeases(ledger, coordinatorUrl, { fetch: opts.fetch });
+  }
+  return ledger;
 }
