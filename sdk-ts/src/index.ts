@@ -51,7 +51,7 @@ import { undoSaga } from "./engine/undo.ts";
 import { probeEffect } from "./engine/probe.ts";
 import { raise as raiseEscalation, onResume as resumeEscalation } from "./escalate/vekinbox.ts";
 import { wrapFetch as wrapFetchImpl } from "./capture/http.ts";
-import { instrumentFs as instrumentFsImpl } from "./capture/fs.ts";
+import { instrumentFs as instrumentFsImpl, type FsInstrumentation } from "./capture/fs.ts";
 import { instrumentPg as instrumentPgImpl, instrumentSqlite as instrumentSqliteImpl } from "./capture/sql.ts";
 import { wrapMcpServer as wrapMcpServerImpl } from "./capture/mcp.ts";
 import type { ExecutePlanOpts } from "./engine/execute.ts";
@@ -96,6 +96,7 @@ export { stepIdempotencyKey, lookupAttempt } from "./engine/idempotency.ts";
 export { raise, onResume, WEBHOOK_MAX_TIMESTAMP_SKEW_MS, listStoredEscalations, getStoredEscalation } from "./escalate/vekinbox.ts";
 export { wrapFetch } from "./capture/http.ts";
 export { instrumentFs } from "./capture/fs.ts";
+export type { FsInstrumentation } from "./capture/fs.ts";
 export { instrumentPg, instrumentSqlite } from "./capture/sql.ts";
 export { wrapMcpServer } from "./capture/mcp.ts";
 export { wrapProxyRequest } from "./proxy/lexgateway.ts";
@@ -511,7 +512,7 @@ export class VekRevert {
   wrapMcpServer(server: unknown): unknown {
     return wrapMcpServerImpl(this, server as never);
   }
-  instrumentFs(opts?: { module?: typeof import("node:fs") }): Disposable {
+  instrumentFs(opts?: { module?: typeof import("node:fs") }): FsInstrumentation {
     return instrumentFsImpl(this, opts);
   }
   instrumentPg(pool: unknown): Disposable {
