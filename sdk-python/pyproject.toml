@@ -11,6 +11,10 @@ authors = [{ name = "LatticeAG" }]
 dev = ["pytest>=8.3"]
 
 [build-system]
+# Floor: setuptools >= 68 reads the PEP 621 [project] table and provides the
+# PEP 660 build_editable hook used by `pip install -e`. Older setuptools
+# ignore [project] and silently build UNKNOWN-0.0.0 — setup.py carries a
+# loud floor check for ambient-env builds (e.g. --no-build-isolation).
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 

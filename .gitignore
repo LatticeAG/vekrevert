@@ -29,4 +29,5 @@ __pycache__/
 .DS_Store
 out/
 tmp/
-data/
+data/*.egg-info/
+*.egg-info/

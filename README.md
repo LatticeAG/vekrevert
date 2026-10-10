@@ -86,8 +86,8 @@ vekrevert undo <effect-id>
 # -> verified compensations run in reverse; unsafe steps escalate
 
 # 4. Audit any time
-vekrevert verify <plan-id>
-vekrevert receipts
+vekrevert verify <plan-id>                  # gate-verifies a compiled compensation plan — a plan id, not a saga id
+vekrevert receipts <saga-id> --verify-chain # ledger integrity for a saga; prints chain_ok
 ```
 
 Or from source (monorepo with CLI, both SDKs, bench, and conformance):
@@ -96,7 +96,8 @@ Or from source (monorepo with CLI, both SDKs, bench, and conformance):
 git clone https://github.com/LatticeAG/vekrevert.git
 cd vekrevert
 pnpm install
-pip install -e sdk-python
+pip install -e sdk-python   # in-tree port (partial — see sdk-python/README.md);
+                            # the packaged SDK is `pip install latticeag-vekrevert`
 pnpm test            # 306 TypeScript tests
 python -m pytest sdk-python/tests   # 35 Python tests
 ```
@@ -234,6 +235,7 @@ vekrevert/
 - **Verifier needs a model** - with no reachable model the structural fallback caps verdicts at `uncertain` and forces escalation. Correct, but chatty.
 - **Drafted stays off by default** - deliberate. Opt in per action family, keep the gate coupled.
 - **Source-install sharp edges** - registry packages track releases; `main` may run ahead (coordinator, eval harness). Pin versions in production.
+- **In-tree `sdk-python` is a partial port** - `core/` (taxonomy, plan, chain, JCS) is real and pinned by the cross-language conformance vectors, but the client/capture/local-ledger surface is stubbed: saga ids stay `sag_pending`, `instrument_fs` is a no-op, and the only ledger is the HTTP client. The packaged SDK is `pip install latticeag-vekrevert` — do not expect the source tree to be a fuller version of it.
 
 ## License
 

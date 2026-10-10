@@ -1,12 +1,48 @@
 /** instrumentFs: patch write/unlink/mkdir/rename/chmod. Capture preimage before write. Fidelity full. */
 
 import * as nodeFs from "node:fs";
+import { createRequire } from "node:module";
 import { dirname } from "node:path";
 import { classifyAction, type ActionRef, type JsonValue } from "@latticeag/vekrevert-core";
 import { closeEffect, openEffect, preflightPolicyLocal, type EffectHost } from "../effect.ts";
 
 type FsModule = typeof import("node:fs");
 type FsPromises = typeof import("node:fs/promises");
+
+/**
+ * Disposable returned by {@link instrumentFs}.
+ */
+export interface FsInstrumentation extends Disposable {
+  /**
+   * The patched fs module object.
+   *
+   * Node's ESM loader snapshots builtins at instantiation: calls made through
+   * `import { writeFileSync } from "node:fs"` or `import * as fs` bound
+   * *before* instrumentation bypass the patch no matter what we do. Route
+   * those call sites through this object (or use the default
+   * `import fs from "node:fs"` / `require("node:fs")`, which share it) so
+   * writes stay captured.
+   */
+  module: FsModule;
+}
+
+/**
+ * `import * as nodeFs` is a read-only module namespace under ESM — assigning
+ * to it throws `Cannot assign to read only property 'writeFileSync'`. The
+ * underlying CommonJS exports object is mutable and shared across
+ * `require("node:fs")` and the ESM default import, so resolve and patch that.
+ * Under CJS runtimes the import namespace is that same object already.
+ */
+function resolveFsPatchTarget(fallback: FsModule): FsModule {
+  try {
+    const req = createRequire(import.meta.url);
+    const shared = req("node:fs") as FsModule | undefined;
+    if (shared) return shared;
+  } catch {
+    /* createRequire unavailable (bundled/non-Node runtime): fall through */
+  }
+  return fallback;
+}
 
 function asPath(p: unknown): string {
   if (typeof p === "string") return p;
@@ -107,23 +143,41 @@ function recordAfter(host: EffectHost, op: string, path: string, extraArgs: Reco
   });
 }
 
-export function instrumentFs(host: EffectHost, opts?: { module?: FsModule }): Disposable {
-  const fs = opts?.module ?? nodeFs;
+export function instrumentFs(host: EffectHost, opts?: { module?: FsModule }): FsInstrumentation {
+  const fs = opts?.module ?? resolveFsPatchTarget(nodeFs);
+  // Raw references restore the module byte-for-byte on dispose; bound copies
+  // drive the real calls from inside the wrappers.
+  const raw = {
+    writeFileSync: fs.writeFileSync,
+    writeFile: fs.writeFile,
+    unlinkSync: fs.unlinkSync,
+    unlink: fs.unlink,
+    mkdirSync: fs.mkdirSync,
+    mkdir: fs.mkdir,
+    renameSync: fs.renameSync,
+    rename: fs.rename,
+    chmodSync: fs.chmodSync,
+    chmod: fs.chmod,
+    existsSync: fs.existsSync,
+    readFileSync: fs.readFileSync,
+    lstatSync: fs.lstatSync,
+    realpathSync: fs.realpathSync,
+  };
   const orig = {
-    writeFileSync: fs.writeFileSync.bind(fs),
-    writeFile: fs.writeFile.bind(fs),
-    unlinkSync: fs.unlinkSync.bind(fs),
-    unlink: fs.unlink.bind(fs),
-    mkdirSync: fs.mkdirSync.bind(fs),
-    mkdir: fs.mkdir.bind(fs),
-    renameSync: fs.renameSync.bind(fs),
-    rename: fs.rename.bind(fs),
-    chmodSync: fs.chmodSync.bind(fs),
-    chmod: fs.chmod.bind(fs),
-    existsSync: fs.existsSync.bind(fs),
-    readFileSync: fs.readFileSync.bind(fs),
-    lstatSync: fs.lstatSync.bind(fs),
-    realpathSync: fs.realpathSync.bind(fs),
+    writeFileSync: raw.writeFileSync.bind(fs),
+    writeFile: raw.writeFile.bind(fs),
+    unlinkSync: raw.unlinkSync.bind(fs),
+    unlink: raw.unlink.bind(fs),
+    mkdirSync: raw.mkdirSync.bind(fs),
+    mkdir: raw.mkdir.bind(fs),
+    renameSync: raw.renameSync.bind(fs),
+    rename: raw.rename.bind(fs),
+    chmodSync: raw.chmodSync.bind(fs),
+    chmod: raw.chmod.bind(fs),
+    existsSync: raw.existsSync.bind(fs),
+    readFileSync: raw.readFileSync.bind(fs),
+    lstatSync: raw.lstatSync.bind(fs),
+    realpathSync: raw.realpathSync.bind(fs),
   };
 
   const readPre = (path: string): PreimageCapture => {
@@ -143,16 +197,46 @@ export function instrumentFs(host: EffectHost, opts?: { module?: FsModule }): Di
   };
 
   const promises = fs.promises as FsPromises | undefined;
-  const origP = promises
+  const rawP = promises
     ? {
-        writeFile: promises.writeFile.bind(promises),
-        unlink: promises.unlink.bind(promises),
-        mkdir: promises.mkdir.bind(promises),
-        rename: promises.rename.bind(promises),
-        chmod: promises.chmod.bind(promises),
+        writeFile: promises.writeFile,
+        unlink: promises.unlink,
+        mkdir: promises.mkdir,
+        rename: promises.rename,
+        chmod: promises.chmod,
+      }
+    : undefined;
+  const origP = rawP
+    ? {
+        writeFile: rawP.writeFile.bind(promises),
+        unlink: rawP.unlink.bind(promises),
+        mkdir: rawP.mkdir.bind(promises),
+        rename: rawP.rename.bind(promises),
+        chmod: rawP.chmod.bind(promises),
       }
     : undefined;
 
+  const dispose = (): void => {
+    fs.writeFileSync = raw.writeFileSync;
+    fs.writeFile = raw.writeFile;
+    fs.unlinkSync = raw.unlinkSync;
+    fs.unlink = raw.unlink;
+    fs.mkdirSync = raw.mkdirSync;
+    fs.mkdir = raw.mkdir;
+    fs.renameSync = raw.renameSync;
+    fs.rename = raw.rename;
+    fs.chmodSync = raw.chmodSync;
+    fs.chmod = raw.chmod;
+    if (promises && rawP) {
+      promises.writeFile = rawP.writeFile;
+      promises.unlink = rawP.unlink;
+      promises.mkdir = rawP.mkdir;
+      promises.rename = rawP.rename;
+      promises.chmod = rawP.chmod;
+    }
+  };
+
+  try {
   fs.writeFileSync = ((path: unknown, data: unknown, options?: unknown) => {
     const p = asPath(path);
     const pre = readPre(p);
@@ -337,26 +421,24 @@ export function instrumentFs(host: EffectHost, opts?: { module?: FsModule }): Di
       return runFsAsync(host, "chmod", p, { mode: Number(mode) }, () => readPre(p), () => origP.chmod(path as never, mode as never));
     }) as typeof promises.chmod;
   }
-
-  const dispose = (): void => {
-    fs.writeFileSync = orig.writeFileSync;
-    fs.writeFile = orig.writeFile;
-    fs.unlinkSync = orig.unlinkSync;
-    fs.unlink = orig.unlink;
-    fs.mkdirSync = orig.mkdirSync;
-    fs.mkdir = orig.mkdir;
-    fs.renameSync = orig.renameSync;
-    fs.rename = orig.rename;
-    fs.chmodSync = orig.chmodSync;
-    fs.chmod = orig.chmod;
-    if (promises && origP) {
-      promises.writeFile = origP.writeFile;
-      promises.unlink = origP.unlink;
-      promises.mkdir = origP.mkdir;
-      promises.rename = origP.rename;
-      promises.chmod = origP.chmod;
+  } catch (err) {
+    try {
+      dispose();
+    } catch {
+      /* best-effort restore before rethrow */
     }
-  };
+    throw new Error(
+      "instrumentFs: could not patch node:fs (module object is read-only — " +
+        "an ESM module namespace was supplied). Calls through " +
+        '`import fs from "node:fs"` (default import) or `require("node:fs")` ' +
+        "are intercepted; ESM named/namespace imports " +
+        '(`import { writeFileSync } from "node:fs"`, `import * as fs`) ' +
+        "snapshot functions at load time and cannot be intercepted — route " +
+        "them through `instrumentation.module`, or capture explicitly with " +
+        "`saga.effect({ capturePreimage })`.",
+      { cause: err },
+    );
+  }
 
-  return { [Symbol.dispose]: dispose };
+  return { [Symbol.dispose]: dispose, module: fs };
 }
