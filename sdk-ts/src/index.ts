@@ -200,6 +200,7 @@ export class VekRevert {
         ...(lowered ? { steps: lowered.steps } : {}),
       });
       if (!isPlanRejection(compiled)) {
+        compiled.plan_id = `cpl_${compiled.plan_hash.slice(7)}`;
         try {
           await ledger.putPlan(compiled);
           await appendChained(

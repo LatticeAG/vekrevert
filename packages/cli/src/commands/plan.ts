@@ -17,6 +17,7 @@ import {
   type JsonValue,
 } from "@latticeag/vekrevert-core";
 import { draftCompileVerify, workspaceAllowsDrafted, draftedActionAllowed } from "@latticeag/vekrevert";
+import { builtins } from "@latticeag/vekrevert-compensators";
 import { CompensatorRegistry } from "@latticeag/vekrevert/registry";
 import type { Ledger } from "@latticeag/vekrevert";
 import { loadWorkspaceConfig } from "../config.ts";
@@ -79,6 +80,8 @@ export async function planCommand(argv: string[], ctx?: { ledger?: Ledger }): Pr
     const registry = new CompensatorRegistry({ ledger: ctx?.ledger });
     await registry.hydrate();
     const listed = await registry.list();
+    const storedIds = new Set((await ctx?.ledger?.listCompensators() ?? []).map((row) => row.id));
+    listed.push(...builtins.filter((builtin) => !storedIds.has(builtin.id)));
     const matched = matchCompensator(listed, receipt.action, receipt.args_observed, receipt.result_observed);
     signature = matched.matched ?? undefined;
   }
@@ -104,6 +107,7 @@ export async function planCommand(argv: string[], ctx?: { ledger?: Ledger }): Pr
         return 3;
       }
       const compiledDraft = piped.plan;
+      if (ctx?.ledger) await ctx.ledger.putPlan(compiledDraft);
       const resolvedDraft = resolvePlan(compiledDraft, receipt, {
         id: compiledDraft.compensator_id,
         match: { kind: "*" },
@@ -138,6 +142,8 @@ export async function planCommand(argv: string[], ctx?: { ledger?: Ledger }): Pr
     return 3;
   }
 
+  compiled.plan_id = `cpl_${compiled.plan_hash.slice(7)}`;
+  if (ctx?.ledger) await ctx.ledger.putPlan(compiled);
   const resolved = resolvePlan(compiled, receipt, signature);
   const payload = json || out ? { ...compiled, resolved } : compiled;
   const text = JSON.stringify(payload, null, 2) + "\n";
