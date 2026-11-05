@@ -29,7 +29,7 @@ const COMMANDS = [
 const USAGE = `vekrevert - compensating transactions for agent side effects
 
 Usage:
-  vekrevert <command> [args]
+  vekrevert [--workspace <dir>] <command> [args]
 
 Commands:
 ${COMMANDS.map((c) => `  ${c}`).join("\n")}

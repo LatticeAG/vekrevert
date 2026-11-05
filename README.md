@@ -73,7 +73,9 @@ grown into production infrastructure.
 
 Install the SDK and CLI from a source checkout as shown below. Run the CLI in the
 workspace where your SDK writes its ledger. `vekrevert init` initializes the
-current directory; configure the SDK with the same ledger URL.
+current directory; configure the SDK with the same ledger URL. When invoking
+from elsewhere, pass `--workspace /path/to/workspace` to select that directory
+(for example, `pnpm --dir /path/to/vekrevert vekrevert --workspace /path/to/workspace verify <plan-id>`).
 
 After an SDK saga records effects, obtain its `saga_id` and `effect_id` from the
 SDK. Compile a compensation plan for each effect; the first field printed by
