@@ -25,6 +25,7 @@ import {
 } from "@latticeag/vekrevert-core";
 import { lowerSteps } from "@latticeag/vekrevert-compensators";
 import { executeStep, newAttemptId, projectionToReceipt, VekRevert } from "../sdk-ts/src/index.ts";
+import { verifyCommand } from "../packages/cli/src/commands/verify.ts";
 
 function compileBuiltin(receipt: EffectReceipt): CompensationPlan {
   const vr = new VekRevert({ ledger: "memory" });
@@ -235,6 +236,7 @@ describe("roundtrip_fs", () => {
       expect(report.world_restored).toBe(true);
       expect(readFileSync(path, "utf8")).toBe("before");
       expect((await v.verify(saga.id)).verdict).toBe("PASS");
+      expect(await verifyCommand([saga.id], { vr: v, ledger: v.ledgerHandle! })).toBe(0);
       await v.ledgerHandle!.close();
     } finally { rmSync(root, { recursive: true, force: true }); }
   });

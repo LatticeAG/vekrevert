@@ -1,6 +1,6 @@
 /** vekrevert verify <plan-id> [--json]  Exit 0 on PASS. Exit 4 on FAIL/UNSURE. */
 
-import { isPlanRejection, VekRevertError } from "@latticeag/vekrevert-core";
+import { VekRevertError } from "@latticeag/vekrevert-core";
 import { VekRevert, verificationPassesGate } from "@latticeag/vekrevert";
 import type { Ledger } from "@latticeag/vekrevert";
 import { mapVrExit } from "./execute.ts";
@@ -36,20 +36,6 @@ export async function verifyCommand(argv: string[], ctx?: { ledger?: Ledger; vr?
   else await vr.openLedgerHandle();
 
   try {
-    if (!(await vr.ledgerHandle!.getPlan(planId)) && await vr.ledgerHandle!.getSaga(planId)) {
-      const effects = await vr.ledgerHandle!.listEffects(planId);
-      if (effects.length !== 1) {
-        process.stderr.write(`Saga ${planId} has ${effects.length} effects; run vekrevert plan <effect-id> for each effect, then verify each plan ID.\n`);
-        return 3;
-      }
-      const plan = await vr.plan(effects[0]!.effect_id);
-      if (isPlanRejection(plan)) {
-        process.stderr.write(`${plan.error_code} ${plan.detail} (saga ${planId}, effect ${effects[0]!.effect_id})\n`);
-        return 3;
-      }
-      process.stderr.write(`Resolved saga ${planId} to plan ${plan.plan_id} for effect ${plan.effect_id}.\n`);
-      planId = plan.plan_id;
-    }
     const rec = await vr.verify(planId);
     if (json) process.stdout.write(JSON.stringify(rec, null, 2) + "\n");
     else {
