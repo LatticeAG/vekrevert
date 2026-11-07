@@ -58,6 +58,19 @@ const USAGE_BY_COMMAND: Record<string, string> = {
 };
 
 export async function runCli(argv: string[]): Promise<number> {
+  if (argv[0] === "--workspace" || argv[0]?.startsWith("--workspace=")) {
+    const separate = argv[0] === "--workspace";
+    const workspace = separate ? argv[1] : argv[0].slice("--workspace=".length);
+    if (!workspace) {
+      process.stderr.write("usage: vekrevert --workspace <dir> <command> [args]\n");
+      return 2;
+    }
+    try { process.chdir(workspace); } catch {
+      process.stderr.write(`vekrevert: cannot access workspace ${workspace}\n`);
+      return 2;
+    }
+    argv = argv.slice(separate ? 2 : 1);
+  }
   const cmd = argv[0];
   if (!cmd || cmd === "-h" || cmd === "--help") {
     process.stdout.write(USAGE);

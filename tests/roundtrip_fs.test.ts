@@ -218,6 +218,27 @@ describe("roundtrip_fs", () => {
     rmSync(root, { recursive: true, force: true });
   });
 
+  it("verifies the recorded plan by saga id after undo replaces the inode", async () => {
+    const root = mkdtempSync(join(tmpdir(), "vr-verify-undo-"));
+    try {
+      const path = join(root, "file.txt");
+      writeFileSync(path, "before");
+      const v = new VekRevert({ ledger: "memory", writableRoots: [root] });
+      const saga = await v.openSaga({ key: "verify-undo" });
+      await saga.effect({
+        action: fsAction("write", path),
+        args: { op: "write", path, realpath: path },
+        capturePreimage: captureFs(path),
+        run: async () => { writeFileSync(path, "after"); return { ok: true }; },
+      });
+      const report = await v.undo(saga.id);
+      expect(report.world_restored).toBe(true);
+      expect(readFileSync(path, "utf8")).toBe("before");
+      expect((await v.verify(saga.id)).verdict).toBe("PASS");
+      await v.ledgerHandle!.close();
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  });
+
   it("dev,ino change is VR5009 and does not write", async () => {
     const root = mkdtempSync(join(tmpdir(), "vr-fs-id-"));
     const v = new VekRevert({
