@@ -1,4 +1,4 @@
-/** SQLite ledger. Default driver. Node 24 `node:sqlite` DatabaseSync. */
+/** SQLite ledger. Default driver. Node 22.13+ `node:sqlite` DatabaseSync. */
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";

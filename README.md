@@ -71,24 +71,28 @@ grown into production infrastructure.
 
 ## Quick Start
 
+Install the SDK and CLI from a source checkout as shown below. Run the CLI in the
+workspace where your SDK writes its ledger. `vekrevert init` initializes the
+current directory; configure the SDK with the same ledger URL. When invoking
+from elsewhere, pass `--workspace /path/to/workspace` to select that directory
+(for example, `pnpm --dir /path/to/vekrevert vekrevert --workspace /path/to/workspace verify <plan-id>`).
+
+After an SDK saga records effects, obtain its `saga_id` and `effect_id` from the
+SDK. Compile a compensation plan for each effect; the first field printed by
+`plan` is the stored `plan_id`:
+
 ```bash
-# 1. Install the SDKs (v0.5.0 on both registries)
-npm install @latticeag/vekrevert
-pip install latticeag-vekrevert
-
-# 2. Wrap a workflow in a saga with a sealed ledger
-vekrevert init ./my-workflow
-vekrevert execute <plan-id>
-# -> each step sealed as a hash-chained receipt
-
-# 3. On failure: reverse in LIFO order, or escalate
-vekrevert undo <effect-id>
-# -> verified compensations run in reverse; unsafe steps escalate
-
-# 4. Audit any time
-vekrevert verify <plan-id>
-vekrevert receipts
+vekrevert plan <effect-id>       # prints <plan-id> <plan-hash> ...
+vekrevert verify <plan-id>       # verifies that compensation plan
+vekrevert undo <saga-id>         # compensates saga effects in LIFO order
+vekrevert receipts <saga-id> --verify-chain
 ```
+
+A single-effect saga ID can also be passed to `verify`, which compiles and
+reports its plan ID. For multiple effects, plan and verify each effect separately.
+`execute <plan-id>` executes one compensation plan; use `undo <saga-id>` to
+unwind the whole saga. Plans require matching compensators, and unsafe effects
+may require human escalation.
 
 Or from source (monorepo with CLI, both SDKs, bench, and conformance):
 
@@ -159,7 +163,7 @@ An agent overwrites `invoice.txt` mid-task, then the task fails:
 ```bash
 # The write lands and seals receipt fs.write.../invoice.txt
 # Undo replays the verified compensation:
-vekrevert undo <effect-id>
+vekrevert undo <saga-id>
 # -> file restored byte-identical to preimage, chain still verifies
 ```
 
