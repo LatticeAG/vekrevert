@@ -1,5 +1,7 @@
 #!/usr/bin/env node
+import { resolve } from "node:path";
 import { runCli } from "./index.ts";
+import { resolveWorkspaceDir } from "./workspace.ts";
 
 const args = process.argv.slice(2);
 const workspaceIndex = args.indexOf("--workspace");
@@ -16,6 +18,12 @@ if (workspaceIndex !== -1) {
     process.exit(2);
   }
   args.splice(workspaceIndex, 2);
+} else if (process.env.VEKREVERT_LEDGER == null) {
+  // Only guess when the caller has not pointed at a ledger explicitly.
+  const target = resolveWorkspaceDir(process.cwd(), process.env.INIT_CWD, process.env.VEKREVERT_LEDGER);
+  if (resolve(target) !== resolve(process.cwd())) {
+    process.chdir(target);
+  }
 }
 const code = await runCli(args);
 process.exit(code);
