@@ -200,6 +200,7 @@ export class VekRevert {
         ...(lowered ? { steps: lowered.steps } : {}),
       });
       if (!isPlanRejection(compiled)) {
+        compiled.plan_id = `cpl_${compiled.plan_hash.slice(7)}`;
         try {
           await ledger.putPlan(compiled);
           await appendChained(
@@ -323,7 +324,27 @@ export class VekRevert {
   }
   async verify(planId: string): Promise<VerificationRecord> {
     const ledger = this.ledgerHandle ?? (await this.openLedgerHandle());
-    const plan = await ledger.getPlan(planId);
+    let plan = await ledger.getPlan(planId);
+    if (!plan && planId.startsWith("sag_")) {
+      const saga = await ledger.getSaga(planId);
+      if (!saga) throw new VekRevertError("VR3001", `unknown saga ${planId}`);
+      const effects = await ledger.listEffects(planId);
+      if (effects.length !== 1) throw new VekRevertError("VR3001", `saga ${planId} must contain exactly one effect`);
+      const events = await ledger.readSaga(planId);
+      for (const event of events.reverse()) {
+        if (event.type !== "compensation_planned" || event.effect_id !== effects[0]!.effect_id) continue;
+        const id = (event.payload as { plan_id?: unknown }).plan_id;
+        if (typeof id === "string" && id) {
+          plan = await ledger.getPlan(id);
+          if (plan) break;
+        }
+      }
+      if (!plan && effects[0]!.compensation_state !== "compensated") {
+        const compiled = await this.plan(effects[0]!.effect_id);
+        if (isPlanRejection(compiled)) throw new VekRevertError(compiled.error_code, compiled.detail);
+        plan = compiled;
+      }
+    }
     if (!plan) throw new VekRevertError("VR3001", `unknown plan ${planId}`);
     const cached = plan.verification?.plan_hash === plan.plan_hash ? plan.verification : cachedVerification(plan.plan_hash);
     if (cached) return cached;

@@ -326,6 +326,8 @@ export async function undoSaga(sagaId: string, opts: UndoEngineOpts): Promise<Un
       continue;
     }
     const plan = compiled as CompensationPlan;
+    // Keep the exact plan that was checked before execution for later verification.
+    await ledger.putPlan(plan);
 
     await appendChained(
       ledger,

@@ -29,7 +29,7 @@ const COMMANDS = [
 const USAGE = `vekrevert - compensating transactions for agent side effects
 
 Usage:
-  vekrevert <command> [args]
+  vekrevert [--workspace <dir>] <command> [args]
 
 Commands:
 ${COMMANDS.map((c) => `  ${c}`).join("\n")}
@@ -43,8 +43,8 @@ const USAGE_BY_COMMAND: Record<string, string> = {
   classify: "usage: vekrevert classify <action-ref> <args-json>",
   plan: "usage: vekrevert plan <effect-id> [--allow-drafted] [--json]",
   execute: "usage: vekrevert execute <plan-id>",
-  undo: "usage: vekrevert undo <effect-id> [--dry-run]",
-  verify: "usage: vekrevert verify <plan-id> [--json]",
+  undo: "usage: vekrevert undo <saga-id> [--dry-run]",
+  verify: "usage: vekrevert verify <plan-id|saga-id> [--json]",
   receipts: "usage: vekrevert receipts [effect-id] [--json]",
   registry: "usage: vekrevert registry <list|match> [--json]",
   register: "usage: vekrevert register <manifest> [--dry-run] [--sign] [--force] [--keygen]",
@@ -58,6 +58,19 @@ const USAGE_BY_COMMAND: Record<string, string> = {
 };
 
 export async function runCli(argv: string[]): Promise<number> {
+  if (argv[0] === "--workspace" || argv[0]?.startsWith("--workspace=")) {
+    const separate = argv[0] === "--workspace";
+    const workspace = separate ? argv[1] : argv[0].slice("--workspace=".length);
+    if (!workspace) {
+      process.stderr.write("usage: vekrevert --workspace <dir> <command> [args]\n");
+      return 2;
+    }
+    try { process.chdir(workspace); } catch {
+      process.stderr.write(`vekrevert: cannot access workspace ${workspace}\n`);
+      return 2;
+    }
+    argv = argv.slice(separate ? 2 : 1);
+  }
   const cmd = argv[0];
   if (!cmd || cmd === "-h" || cmd === "--help") {
     process.stdout.write(USAGE);
